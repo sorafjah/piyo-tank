@@ -19,28 +19,50 @@
   /* ---------- 共通オーバーレイ ---------- */
   .screen {
     position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-    background:radial-gradient(circle at 50% 30%, #2f5c33 0%, #16241a 75%);
-    color:#fff; text-align:center; padding:16px; z-index:50; overflow-y:auto;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 22%),
+      radial-gradient(circle at 82% 24%, rgba(255,240,150,.5) 0%, rgba(255,240,150,0) 26%),
+      linear-gradient(180deg, #8fdcff 0%, #bdeaff 42%, #9fe07a 42%, #7fd45f 100%);
+    color:#20331d; text-align:center; padding:16px; z-index:50; overflow-y:auto;
   }
   .hidden { display:none !important; }
   .title-main {
-    font-size:clamp(28px, 7vw, 56px); font-weight:700; color:#ffe066;
-    text-shadow:0 4px 0 #b5860a, 0 6px 14px rgba(0,0,0,.5); letter-spacing:.04em; margin:6px 0 4px;
+    font-size:clamp(28px, 7vw, 56px); font-weight:700; color:#ffd23f;
+    text-shadow:0 3px 0 #d98a00, 0 5px 0 #b5680a, 0 7px 12px rgba(0,0,0,.28); letter-spacing:.04em; margin:6px 0 4px;
   }
-  .title-sub { font-size:clamp(12px,3vw,16px); color:#cfe8c9; margin-bottom:16px; }
+  .title-sub { font-size:clamp(12px,3vw,16px); color:#2c4a2a; font-weight:700; margin-bottom:16px; }
 
   .char-grid { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:18px; max-width:640px; }
   .char-card {
-    width:126px; padding:10px 8px 12px; border-radius:20px; background:rgba(255,255,255,.08);
-    border:3px solid rgba(255,255,255,.25); cursor:pointer; transition:transform .15s, border-color .15s, background .15s;
+    width:126px; padding:10px 8px 12px; border-radius:20px; background:rgba(255,255,255,.78);
+    border:3px solid rgba(255,255,255,.95); cursor:pointer; transition:transform .15s, border-color .15s, background .15s;
     display:flex; flex-direction:column; align-items:center; min-height:44px;
+    box-shadow:0 4px 10px rgba(40,70,30,.18);
   }
-  .char-card:active, .char-card.selected { transform:scale(.96); border-color:#ffe066; background:rgba(255,224,102,.18); }
+  .char-card:active, .char-card.selected { transform:scale(.96); border-color:#ff9f1c; background:rgba(255,240,190,.95); }
   .char-swatch { width:72px; height:72px; margin-bottom:4px; }
-  .char-name { font-size:15px; font-weight:700; margin-bottom:4px; }
-  .stat-row { width:100%; font-size:10px; display:flex; align-items:center; gap:4px; margin-top:2px; color:#dfe; }
-  .stat-bar { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden; }
+  .char-name { font-size:15px; font-weight:700; margin-bottom:4px; color:#243b21; }
+  .stat-row { width:100%; font-size:10px; display:flex; align-items:center; gap:4px; margin-top:2px; color:#3d5a37; font-weight:700; }
+  .stat-bar { flex:1; height:6px; border-radius:3px; background:rgba(60,90,50,.18); overflow:hidden; }
   .stat-fill { height:100%; border-radius:3px; }
+
+  .howto-list {
+    max-width:520px; width:100%; display:flex; flex-direction:column; gap:8px; margin-bottom:18px;
+    background:rgba(255,255,255,.8); border-radius:18px; padding:14px 14px;
+    box-shadow:0 4px 10px rgba(40,70,30,.18);
+  }
+  .howto-row { display:flex; align-items:center; gap:10px; text-align:left; font-size:13px; color:#243b21; font-weight:700; line-height:1.4; }
+  .howto-icon {
+    flex:0 0 auto; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+  #reviewCard {
+    max-width:460px; width:100%; background:rgba(255,255,255,.85); border-radius:18px;
+    padding:14px 16px; margin-bottom:18px; color:#243b21; box-shadow:0 4px 10px rgba(40,70,30,.18);
+  }
+  .review-rank { font-size:30px; font-weight:700; color:#e88a00; margin-bottom:4px; }
+  .review-line { font-size:13px; font-weight:700; margin:3px 0; }
+  .review-comment { font-size:13px; margin-top:8px; line-height:1.5; }
 
   .big-btn {
     font-size:22px; font-weight:700; color:#1a2418; background:linear-gradient(#ffe680,#ffcf3d);
@@ -48,7 +70,7 @@
     cursor:pointer;
   }
   .big-btn:active { transform:translateY(3px); box-shadow:0 2px 0 #b5860a; }
-  .stage-label { font-size:15px; color:#ffe066; margin-bottom:6px; font-weight:700; }
+  .stage-label { font-size:15px; color:#2c4a2a; margin-bottom:10px; font-weight:700; }
 
   /* ---------- HUD ---------- */
   #hud { position:fixed; inset:0; pointer-events:none; z-index:20; }
@@ -74,6 +96,14 @@
   }
   .base-icon.dead { background:#555; opacity:.35; }
 
+  #buffList {
+    position:fixed; top:104px; right:12px; display:flex; flex-direction:column; gap:4px; align-items:flex-end;
+  }
+  .buff-chip {
+    background:rgba(0,0,0,.45); border:2px solid #fff; border-radius:10px;
+    padding:3px 8px; font-size:11px; font-weight:700; color:#fff; white-space:nowrap;
+  }
+
   #toast {
     position:fixed; top:26%; left:50%; transform:translate(-50%,-8px); pointer-events:none;
     background:rgba(0,0,0,.55); border:3px solid #ffe066; border-radius:20px; padding:8px 22px;
@@ -86,15 +116,15 @@
     pointer-events:auto; touch-action:none;
   }
   #joyBase {
-    position:absolute; left:24px; bottom:max(24px, env(safe-area-inset-bottom)); width:126px; height:126px; border-radius:50%;
+    position:absolute; left:24px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 78px); width:126px; height:126px; border-radius:50%;
     background:rgba(255,255,255,.12); border:3px solid rgba(255,255,255,.35);
   }
   #joyKnob {
-    position:absolute; left:63px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 39px); width:48px; height:48px; border-radius:50%;
+    position:absolute; left:63px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 117px); width:48px; height:48px; border-radius:50%;
     background:rgba(255,224,102,.85); border:3px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.35);
   }
   #actionZone {
-    position:fixed; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); display:flex; gap:14px; align-items:flex-end;
+    position:fixed; right:16px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 102px); display:flex; gap:14px; align-items:center;
     pointer-events:auto;
   }
   .act-btn {
@@ -104,7 +134,7 @@
   }
   #btnFire { background:radial-gradient(circle at 35% 30%, #ff8f6b, #d43b1f); }
   #btnFire:active, #btnFire.ready-flash { transform:scale(.93); }
-  #btnGuard { background:radial-gradient(circle at 35% 30%, #7fd0ff, #2e7cc4); width:70px; height:70px; }
+  #btnGuard { background:radial-gradient(circle at 35% 30%, #7fd0ff, #2e7cc4); width:78px; height:78px; }
   #btnGuard.active { background:radial-gradient(circle at 35% 30%, #ffe680, #d4a017); }
 
   .close-x { position:fixed; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.55); }
@@ -122,23 +152,38 @@
     <button class="big-btn" id="btnStart">スタート</button>
   </div>
 
+  <!-- あそびかた説明 -->
+  <div id="screenHowTo" class="screen hidden">
+    <div class="title-main" style="font-size:clamp(24px,6vw,42px);">あそびかた</div>
+    <div class="howto-list">
+      <div class="howto-row"><span class="howto-icon" style="background:#ffcf3d;">◀▶</span><span>ひだりの スティックで うごく（ひだり・みぎで まがる、うえ・したで まえ・うしろ）</span></div>
+      <div class="howto-row"><span class="howto-icon" style="background:#ff8f6b;">●</span><span>「ばくだん」ボタンで まえに たまを うつ。かべは こえられない</span></div>
+      <div class="howto-row"><span class="howto-icon" style="background:#7fd0ff;">◆</span><span>「ガード」ボタンで 2びょう みを まもる。もういちど まもるなら おしなおす</span></div>
+      <div class="howto-row"><span class="howto-icon" style="background:#ff5d5d;">▲</span><span>トゲの ついた てきの きちを ぜんぶ こわせば クリア！</span></div>
+      <div class="howto-row"><span class="howto-icon" style="background:#6bef7a;">★</span><span>てきを たおすと アイテムが でることが ある。ひろって パワーアップ！</span></div>
+      <div class="howto-row"><span class="howto-icon" style="background:#b659ff;">⏱</span><span>せいげんじかんは 120びょう。ステージは ぜんぶで 3つ</span></div>
+    </div>
+    <button class="big-btn" id="btnHowToStart">はじめる</button>
+  </div>
+
   <!-- ステージクリア -->
   <div id="screenClear" class="screen hidden">
-    <div class="title-main" style="color:#8be26c;">ステージクリア！</div>
+    <div class="title-main" style="color:#5fe06b;">ステージクリア！</div>
     <div class="stage-label" id="clearTimeText"></div>
     <button class="big-btn" id="btnNext">つぎのステージへ</button>
   </div>
 
   <!-- ゲームクリア -->
   <div id="screenWin" class="screen hidden">
-    <div class="title-main" style="color:#ffe066;">ぜんぶ はかいした！</div>
+    <div class="title-main" style="color:#ffd23f;">ぜんぶ はかいした！</div>
     <div class="stage-label">ぴよタンク隊、しょうり！</div>
+    <div id="reviewCard"></div>
     <button class="big-btn" id="btnWinRetry">もういちど あそぶ</button>
   </div>
 
   <!-- ゲームオーバー -->
   <div id="screenOver" class="screen hidden">
-    <div class="title-main" style="color:#ff7b6b;">やられた…</div>
+    <div class="title-main" style="color:#ff8a6b;">やられた…</div>
     <div class="stage-label" id="overReasonText"></div>
     <button class="big-btn" id="btnRetry">リトライ</button>
   </div>
@@ -154,6 +199,7 @@
       <div id="stageText">ステージ 1</div>
     </div>
     <div id="baseIcons"></div>
+    <div id="buffList"></div>
     <div id="toast"></div>
   </div>
 
@@ -182,7 +228,7 @@ const BOMB_MAX_RANGE = UNIT * 4.4;   // 爆弾の最大射程（20%短縮、こ�
 const BOMB_SPEED = UNIT * 4.16;      // 爆弾の飛行速度（20%減、前方へ直進）
 const BOMB_HIT_RADIUS_ENEMY = 0.55;  // 直撃判定（この距離まで近づいたら命中）
 const BOMB_HIT_RADIUS_BASE = 0.95;
-const BOMB_COOLDOWN = 2.0;
+const BOMB_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;         // レーザーと同じ：敵は2発で撃破
 const BASE_HIT_TO_KILL = 4;          // レーザーと同じ：基地は4発で撃破
 const MAX_ENEMIES = 2;
@@ -191,25 +237,35 @@ const PLAYER_INVULN = 0.5;
 const GUARD_DAMAGE_MULT = 0.5;
 const GUARD_SPEED_MULT = 0.55;
 const GUARD_MAX_DURATION = 2.0;      // ガード持続は最大2秒
+const ITEM_DROP_CHANCE = 0.6;        // 敵撃破時にアイテムが出る確率
+const ITEM_DURATION = 8.0;           // 効果時間（体力回復以外）
+const ITEM_LIFETIME = 12.0;          // 拾われずに消えるまでの時間
+const ITEM_TYPES = [
+  { id:"speedUp",   label:"スピードアップ！", color:0x4fd1ff, weight:3 },
+  { id:"rangeUp",   label:"とびきょり アップ！", color:0xb4f23a, weight:3 },
+  { id:"bigShot",   label:"だんがん きょだいか！", color:0xff9f1c, weight:3 },
+  { id:"heal",      label:"たいりょく かいふく！", color:0x6bef7a, weight:3 },
+  { id:"speedDown", label:"スピードダウン…", color:0xa88fd6, weight:2 },
+];
 const CAM_DIST = 7.2, CAM_HEIGHT = 4.0, CAM_LERP = 6.5;
 const DT_CLAMP = 1 / 30;
 
 const CHAR_DEFS = [
-  { id:"piyo", name:"ぴよ", hull:0xffd23f, accent:0xff9f1c, speed:1.22, turn:1.15, armor:1.12, desc:"はやいが うすい" },
-  { id:"panda", name:"ぱんだ", hull:0xf2f2f2, accent:0x222222, speed:0.82, turn:0.85, armor:0.82, desc:"おそいが かたい" },
+  { id:"piyo", name:"ぴよ", hull:0xffd23f, accent:0xff9f1c, speed:1.34, turn:1.27, armor:1.23, desc:"すごく はやいが うすい" },
+  { id:"panda", name:"ぱんだ", hull:0xf2f2f2, accent:0x222222, speed:0.74, turn:0.77, armor:0.74, desc:"おそいが とても かたい" },
   { id:"inu", name:"イヌ", hull:0xc98a4b, accent:0x7a4a20, speed:1.0, turn:1.0, armor:1.0, desc:"バランス型" },
-  { id:"neko", name:"ネコ", hull:0xb0b6c0, accent:0x50545c, speed:1.08, turn:1.35, armor:1.05, desc:"こまわりが きく" },
+  { id:"neko", name:"ネコ", hull:0xb0b6c0, accent:0x50545c, speed:1.19, turn:1.49, armor:1.16, desc:"とても こまわりが きく" },
 ];
 
 function stageConfig(stage) {
   // stage: 1,2,3
   const cfgs = {
     1: { halfSize:  9*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:3.4, enemyFireInt:3.4, enemyRange:7*UNIT,
-         enemySpeed:2.2, respawnDelay:4.5, timeLimit:120, density:0.16 },
+         enemySpeed:2.2, respawnDelay:4.5, timeLimit:120, density:0.16, baseCount:2, baseBurst:1 },
     2: { halfSize: 14*UNIT, baseActive:true,  baseRange:9*UNIT,  baseFireInt:2.8, enemyFireInt:2.7, enemyRange:8*UNIT,
-         enemySpeed:2.6, respawnDelay:4.0, timeLimit:120, density:0.18 },
-    3: { halfSize: 18*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.2, enemyFireInt:2.2, enemyRange:9*UNIT,
-         enemySpeed:2.9, respawnDelay:3.5, timeLimit:120, density:0.20 },
+         enemySpeed:2.6, respawnDelay:4.0, timeLimit:120, density:0.18, baseCount:2, baseBurst:1 },
+    3: { halfSize: 18*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:3.0, enemyFireInt:2.2, enemyRange:9*UNIT,
+         enemySpeed:2.9, respawnDelay:3.5, timeLimit:120, density:0.20, baseCount:3, baseBurst:3 },
   };
   return cfgs[stage];
 }
@@ -449,7 +505,7 @@ function buildDog(scene) {
   const dog = new THREE.Group();
   const rig = new THREE.Group();
   dog.add(rig);
-  const dogBody = new THREE.MeshStandardMaterial({ color:0xf7f2e6, metalness:0.35, roughness:0.45 });
+  const dogBody = new THREE.MeshStandardMaterial({ color:0xe8cfa0, metalness:0.2, roughness:0.55 });
   const dogAcc  = new THREE.MeshStandardMaterial({ color:0x62b0e8, metalness:0.5, roughness:0.35 });
   const dogDark = new THREE.MeshStandardMaterial({ color:0x2e3338, metalness:0.5, roughness:0.5 });
   const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.85,0.58,1.45), dogBody);
@@ -630,19 +686,26 @@ function renderCharPreview(canvas, speciesId, bgTint) {
     previewRenderer.setSize(128, 128, false);
     const pScene = new THREE.Scene();
     const pCam = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
-    const info = CHAR_MODEL_INFO[speciesId] || CHAR_MODEL_INFO.piyo;
     const model = buildCharacterModel(speciesId);
-    const s = 1.5 / info.height;
-    model.scale.setScalar(s);
-    model.position.y = -0.75; // 正規化した高さ(1.5)の中心をy=0に合わせる
     model.rotation.y = -0.55;
+    model.updateMatrixWorld(true);
+
+    // 実寸を測って、縦にも横にも収まるようスケールと位置を決める
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = 1.45 / maxDim;
+    model.scale.setScalar(s);
+    model.position.set(-center.x*s, -center.y*s, -center.z*s);
+
     pScene.add(model);
     const hemi = new THREE.HemisphereLight(0xffffff, 0x998866, 1.15);
     pScene.add(hemi);
     const dl = new THREE.DirectionalLight(0xffffff, 0.9);
     dl.position.set(2, 3, 2.5);
     pScene.add(dl);
-    pCam.position.set(0, 0, 3.35); // 余白を確保して頭が切れないよう十分に引く
+    pCam.position.set(0, 0, 3.3);
     pCam.lookAt(0, 0, 0);
     previewRenderer.render(pScene, pCam);
   } catch (e) { /* プレビュー描画に失敗しても選択自体には影響しない */ }
@@ -721,7 +784,7 @@ function generateStage(stage) {
     const j = Math.floor(Math.random()*(i+1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  const baseCells = shuffled.slice(0, 2);
+  const baseCells = shuffled.slice(0, cfg.baseCount || 2);
 
   // ---- 迷路生成（ランダムDFS：棒倒し法に近い方式）----
   // wallRight[x][z] : セル(x,z)と(x+1,z)の間の壁
@@ -999,7 +1062,7 @@ function buildWorld(stage, charId) {
     g.add(spikesGroup);
     g.position.copy(pos);
     root.add(g);
-    return { mesh:g, spikesGroup, pos:pos.clone(), hp:BASE_HIT_TO_KILL, alive:true, fireTimer: 1.0 + i*0.6, index:i };
+    return { mesh:g, spikesGroup, pos:pos.clone(), hp:BASE_HIT_TO_KILL, alive:true, fireTimer: 1.0 + i*0.6, burstLeft:0, burstTimer:0, index:i };
   });
 
   world = {
@@ -1009,6 +1072,8 @@ function buildWorld(stage, charId) {
     projectiles: [],
     laserBolts: [],
     bombs: [],
+    items: [],
+    buffs: {},
     effects: [],
     blockerMeshList, allBlockers,
     stage,
@@ -1085,12 +1150,14 @@ function findPathCells(fromCell, toCell) {
 const ENEMY_HULL = 0xff6b5b, ENEMY_ACCENT = 0xa62f2f;
 function spawnEnemyFrom(base) {
   const pool = CHAR_DEFS.filter(c => c.id !== selectedChar);
-  const enemySpecies = (pool.length ? pool[Math.floor(Math.random()*pool.length)] : CHAR_DEFS[0]).id;
-  const mesh = buildTank(ENEMY_HULL, ENEMY_ACCENT, enemySpecies, 1.0, false);
+  const def = pool.length ? pool[Math.floor(Math.random()*pool.length)] : CHAR_DEFS[0];
+  const mesh = buildTank(ENEMY_HULL, ENEMY_ACCENT, def.id, 1.0, false);
   mesh.position.copy(base.pos);
   root_add(mesh);
+  // 硬いキャラ(armorが低い)は敵として出た時も1発多く耐える
+  const hp = def.armor <= 0.8 ? ENEMY_HIT_TO_KILL + 1 : ENEMY_HIT_TO_KILL;
   const enemy = {
-    mesh, pos: base.pos.clone(), facing: 0, hp: ENEMY_HIT_TO_KILL,
+    mesh, def, pos: base.pos.clone(), facing: 0, hp,
     fireTimer: 1.0 + Math.random()*0.5, alive:true, spawnBase: base.index,
     standoff: world.cfg.enemyRange * (0.42 + Math.random()*0.14),
     aware: false, path: null, pathTimer: 0,
@@ -1145,14 +1212,18 @@ const raycaster = new THREE.Raycaster();
 // 自機の弾を投げる：正面へ直進し、壁か的に当たる・または最大射程で自然に消える
 function throwBomb(originPos, dirRad) {
   const dir = new THREE.Vector3(Math.sin(dirRad), 0, Math.cos(dirRad));
+  const big = !!world.buffs.bigShot;
+  const hitMul = big ? 2.0 : 1.0;                                  // 当たり判定2倍
+  const maxRange = BOMB_MAX_RANGE * (world.buffs.rangeUp ? 1.8 : 1);
 
   const bombGeo = getBombGeometry();
   const bombMat = new THREE.MeshStandardMaterial({ color:0xb4f23a, roughness:0.55, metalness:0.05, flatShading:true, emissive:0x6f9c1a, emissiveIntensity:0.25 });
   const mesh = new THREE.Mesh(bombGeo, bombMat);
+  mesh.scale.setScalar(big ? 2.0 : 1.0);
   mesh.position.copy(originPos); mesh.position.y = 0.55;
   world.root.add(mesh);
 
-  world.bombs.push({ mesh, dir, traveled:0 });
+  world.bombs.push({ mesh, dir, traveled:0, hitMul, maxRange });
 }
 
 // 何面体のごつごつした弾ジオメトリ（頂点を少しランダムにずらして岩っぽくする）
@@ -1178,6 +1249,95 @@ function explodeBombAt(pos, hitEnemy, hitBase) {
   spawnExplosion(pos, hitEnemy || hitBase ? 1.8 : 0.6, [0xd6ff6b, 0xb4f23a, 0xffffff]);
   if (hitEnemy) { AudioSys.hit(); applyDamage(hitEnemy, true, 1, "bomb"); }
   else if (hitBase) { applyBaseDamage(hitBase); }
+}
+
+/* =========================================================================
+   アイテム（敵撃破時にランダムでドロップ）
+========================================================================= */
+function pickItemType() {
+  const total = ITEM_TYPES.reduce((s,t) => s + t.weight, 0);
+  let r = Math.random() * total;
+  for (const t of ITEM_TYPES) { r -= t.weight; if (r <= 0) return t; }
+  return ITEM_TYPES[0];
+}
+
+function maybeDropItem(pos) {
+  if (Math.random() > ITEM_DROP_CHANCE) return;
+  maybeDropItemForced(pos, pickItemType());
+}
+
+function maybeDropItemForced(pos, type) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:type.color, roughness:0.35, metalness:0.2, emissive:type.color, emissiveIntensity:0.35 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.52), mat);
+  g.add(box);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.05, 8, 20),
+    new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.7 })
+  );
+  ring.rotation.x = Math.PI/2;
+  g.add(ring);
+  g.position.set(pos.x, 0.6, pos.z);
+  world.root.add(g);
+  world.items.push({ mesh:g, type, pos:new THREE.Vector3(pos.x,0,pos.z), life:0 });
+}
+
+function updateItems(dt) {
+  const p = world.player;
+  for (let i = world.items.length-1; i >= 0; i--) {
+    const it = world.items[i];
+    it.life += dt;
+    it.mesh.rotation.y += dt * 1.8;
+    it.mesh.position.y = 0.6 + Math.sin(it.life * 3.2) * 0.12;
+    // 消える直前は点滅させて知らせる
+    if (it.life > ITEM_LIFETIME - 3) it.mesh.visible = Math.floor(it.life * 6) % 2 === 0;
+
+    if (p.alive && Math.hypot(p.pos.x-it.pos.x, p.pos.z-it.pos.z) < 1.0) {
+      applyItemEffect(it.type);
+      world.root.remove(it.mesh);
+      world.items.splice(i,1);
+      continue;
+    }
+    if (it.life >= ITEM_LIFETIME) {
+      world.root.remove(it.mesh);
+      world.items.splice(i,1);
+    }
+  }
+
+  // 効果時間の管理
+  for (const key of Object.keys(world.buffs)) {
+    world.buffs[key] -= dt;
+    if (world.buffs[key] <= 0) delete world.buffs[key];
+  }
+  updateBuffHud();
+}
+
+function applyItemEffect(type) {
+  AudioSys.enemyDown();
+  if (runStats) runStats.itemsTaken += 1;
+  spawnExplosion(world.player.pos, 0.9, [type.color, 0xffffff]);
+  if (type.id === "heal") {
+    world.player.hp = Math.min(PLAYER_HP_MAX, world.player.hp + 35);
+  } else {
+    world.buffs[type.id] = ITEM_DURATION;
+    // スピードアップとダウンは打ち消し合う
+    if (type.id === "speedUp") delete world.buffs.speedDown;
+    if (type.id === "speedDown") delete world.buffs.speedUp;
+  }
+  showToast(type.label, 1200);
+}
+
+function updateBuffHud() {
+  const el = document.getElementById("buffList");
+  if (!el) return;
+  const keys = Object.keys(world.buffs);
+  if (keys.length === 0) { el.innerHTML = ""; return; }
+  el.innerHTML = keys.map(k => {
+    const t = ITEM_TYPES.find(x => x.id === k);
+    const name = t ? t.label.replace(/[！…]/g, "") : k;
+    const hex = t ? "#" + t.color.toString(16).padStart(6,"0") : "#fff";
+    return `<div class="buff-chip" style="border-color:${hex}">${name} ${Math.ceil(world.buffs[k])}</div>`;
+  }).join("");
 }
 
 /* ---------------- 命中エフェクト（ドカーン） ---------------- */
@@ -1263,6 +1423,8 @@ function applyDamage(entity, byPlayer, hits, sourceType) {
     AudioSys.enemyDown();
     spawnExplosion(entity.pos, 2.0, [0xff6b5b, 0xffb703, 0xffe066, 0xffffff]);
     showToast("げきは！", 700);
+    if (runStats) runStats.enemiesDefeated += 1;
+    maybeDropItem(entity.pos);
   } else {
     spawnExplosion(entity.pos, 0.85);
   }
@@ -1292,6 +1454,7 @@ function applyProjectileDamageToPlayer(dmg) {
   if (p.guard) d *= GUARD_DAMAGE_MULT;
   d *= p.def.armor;
   p.hp = Math.max(0, p.hp - d);
+  if (runStats) runStats.totalDamage += d;
   p.invuln = PLAYER_INVULN;
   AudioSys.playerHit();
   spawnExplosion(p.pos, p.guard ? 0.7 : 1.3, p.guard ? [0x7fd0ff,0xffffff] : [0xff5d5d,0xffb703,0xffffff]);
@@ -1345,7 +1508,7 @@ function joyBaseCenter() {
 }
 function setJoyKnob(dx, dy) {
   joyKnob.style.left = (63 + dx) + "px";
-  joyKnob.style.bottom = "calc(max(24px, env(safe-area-inset-bottom)) + " + (39 - dy) + "px)";
+  joyKnob.style.bottom = "calc(max(24px, env(safe-area-inset-bottom)) + " + (117 - dy) + "px)";
 }
 joyZone.addEventListener("pointerdown", e => {
   AudioSys.unlock();
@@ -1461,29 +1624,71 @@ function startBoardingSequence(charId) {
   document.getElementById("actionZone").style.visibility = "hidden";
   showToast("とうじょう ちゅう…", 1600);
 
-  world.boarding = { walker, t:0, duration:1.35, startPos, endPos, feetY:info.feetY, walkScale };
+  world.boarding = {
+    walker, t:0,
+    zoomDuration: 1.1,   // キャラをアップで見せる時間
+    duration: 1.35,      // 歩いて乗り込む時間
+    startPos, endPos, feetY:info.feetY, walkScale,
+  };
   world.state = "boarding";
-  updateCamera(999); // 前の画面から持ち越した位置から一気に正しい位置へスナップ
+  updateBoardingCamera(0, 999);
+}
+
+// 搭乗シーン用カメラ：最初はキャラをアップ、その後ゲーム視点へなめらかに引く
+function updateBoardingCamera(zoomProgress, dt) {
+  const b = world.boarding;
+  const p = world.player;
+
+  // アップの視点：歩いてくるキャラを間近で捉える
+  const walkerPos = b.walker.position;
+  const toTank = new THREE.Vector3(p.pos.x-walkerPos.x, 0, p.pos.z-walkerPos.z).normalize();
+  const sideDir = new THREE.Vector3(-toTank.z, 0, toTank.x);
+  const closeCam = walkerPos.clone()
+    .addScaledVector(toTank, -1.5)
+    .addScaledVector(sideDir, 1.6);
+  closeCam.y = 1.15;
+  const closeLook = walkerPos.clone(); closeLook.y = 0.65;
+
+  // 通常のゲーム視点
+  const behind = new THREE.Vector3(-Math.sin(p.facing), 0, -Math.cos(p.facing));
+  const farCam = p.pos.clone().addScaledVector(behind, CAM_DIST);
+  farCam.y = CAM_HEIGHT;
+  const farLook = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 2.2);
+  farLook.y = 0.6;
+
+  const k = zoomProgress*zoomProgress*(3 - 2*zoomProgress); // ease in-out
+  const camTarget = closeCam.clone().lerp(farCam, k);
+  const lookTarget = closeLook.clone().lerp(farLook, k);
+
+  if (dt >= 999) camera.position.copy(camTarget);
+  else camera.position.lerp(camTarget, Math.min(1, 9*dt));
+  camera.lookAt(lookTarget);
 }
 
 function updateBoarding(dt) {
   const b = world.boarding;
   if (!b) { world.state = "playing"; return; }
   b.t += dt;
-  const t = Math.min(1, b.t / b.duration);
-  const ease = t*t*(3 - 2*t);
+  const total = b.zoomDuration + b.duration;
+
+  // 前半：その場でアップのままキャラを見せる／後半：歩いて乗り込みつつカメラが引く
+  const walkT = Math.max(0, Math.min(1, (b.t - b.zoomDuration) / b.duration));
+  const ease = walkT*walkT*(3 - 2*walkT);
   b.walker.position.x = b.startPos.x + (b.endPos.x - b.startPos.x) * ease;
   b.walker.position.z = b.startPos.z + (b.endPos.z - b.startPos.z) * ease;
-  const hop = Math.sin(Math.min(t,0.92) * Math.PI * 4.5) * 0.10 * (1 - t*0.6);
+  const hop = Math.sin(Math.min(walkT,0.92) * Math.PI * 4.5) * 0.10 * (1 - walkT*0.6);
   b.walker.position.y = b.startPos.y + Math.max(0, hop);
 
-  updateCamera(dt);
+  // カメラは歩き始めてから引き始める
+  const zoomOut = Math.max(0, Math.min(1, (b.t - b.zoomDuration*0.55) / (b.duration*0.75)));
+  updateBoardingCamera(zoomOut, dt);
 
-  if (t >= 1) {
+  if (b.t >= total) {
     world.root.remove(b.walker);
     world.player.mesh.userData.pilot.visible = true;
     world.boarding = null;
     world.state = "playing";
+    updateCamera(999);
     document.getElementById("joyZone").style.visibility = "";
     document.getElementById("actionZone").style.visibility = "";
     showToast("ステージ " + world.stage + " スタート！", 1100);
@@ -1547,7 +1752,8 @@ function stepGame(dt) {
 
     if (throttle !== 0) {
       const speedMul = p.guard ? GUARD_SPEED_MULT : 1;
-      const fwdSpeed = 6.6 * p.def.speed * speedMul;
+      const buffSpeed = (world.buffs.speedUp ? 1.45 : 1) * (world.buffs.speedDown ? 0.62 : 1);
+      const fwdSpeed = 6.6 * p.def.speed * speedMul * buffSpeed;
       const speed = throttle > 0 ? fwdSpeed * throttle : fwdSpeed * throttle * 0.6;
       p.pos.x += Math.sin(p.facing) * speed * dt;
       p.pos.z += Math.cos(p.facing) * speed * dt;
@@ -1571,6 +1777,19 @@ function stepGame(dt) {
     if (!base.alive) return;
     base.spikesGroup.rotation.y += dt * 0.6;
     if (!cfg.baseActive) return;
+
+    // バースト中は1秒間隔で残弾を撃つ
+    if (base.burstLeft > 0) {
+      base.burstTimer -= dt;
+      if (base.burstTimer <= 0 && p.alive) {
+        base.burstTimer = 1.0;
+        base.burstLeft -= 1;
+        AudioSys.baseShot();
+        spawnProjectile(base.pos, p.pos, 7.0, 12, 0xb659ff, 1.5);
+      }
+      return;
+    }
+
     const dist = base.pos.distanceTo(p.pos);
     if (dist <= cfg.baseRange) {
       base.fireTimer -= dt;
@@ -1578,6 +1797,9 @@ function stepGame(dt) {
         base.fireTimer = cfg.baseFireInt;
         AudioSys.baseShot();
         spawnProjectile(base.pos, p.pos, 7.0, 12, 0xb659ff, 1.5);
+        // 3連射ステージでは、この後さらに1秒おきに追加で撃つ
+        const burst = (cfg.baseBurst || 1) - 1;
+        if (burst > 0) { base.burstLeft = burst; base.burstTimer = 1.0; }
       }
     }
   });
@@ -1646,26 +1868,26 @@ function stepGame(dt) {
         let diff = desiredFacing - e.facing;
         while (diff > Math.PI) diff -= Math.PI*2;
         while (diff < -Math.PI) diff += Math.PI*2;
-        const turnRate = 2.4 * dt;
+        const turnRate = 2.4 * (e.def ? e.def.turn : 1) * dt;
         if (Math.abs(diff) < turnRate) e.facing = desiredFacing;
         else e.facing += Math.sign(diff) * turnRate;
       }
 
       if (doStandoff) {
         if (dist > e.standoff + 1.0) {
-          const speed = cfg.enemySpeed;
+          const speed = cfg.enemySpeed * (e.def ? e.def.speed : 1);
           e.pos.x += Math.sin(e.facing) * speed * dt;
           e.pos.z += Math.cos(e.facing) * speed * dt;
           resolveBlockerPush(e.pos, 0.62);
         } else if (dist < e.standoff - 1.4) {
-          const speed = cfg.enemySpeed * 0.6;
+          const speed = cfg.enemySpeed * (e.def ? e.def.speed : 1) * 0.6;
           e.pos.x -= Math.sin(e.facing) * speed * dt;
           e.pos.z -= Math.cos(e.facing) * speed * dt;
           resolveBlockerPush(e.pos, 0.62);
         }
       } else {
         // 通路移動中は迂回せず経路の目標点へまっすぐ進む
-        const speed = cfg.enemySpeed;
+        const speed = cfg.enemySpeed * (e.def ? e.def.speed : 1);
         e.pos.x += Math.sin(e.facing) * speed * dt;
         e.pos.z += Math.cos(e.facing) * speed * dt;
         resolveBlockerPush(e.pos, 0.62);
@@ -1729,15 +1951,15 @@ function stepGame(dt) {
 
     if (!exploded) {
       for (const e of world.enemies) {
-        if (e.alive && Math.hypot(e.pos.x-nx, e.pos.z-nz) < BOMB_HIT_RADIUS_ENEMY) { exploded = true; hitEnemy = e; break; }
+        if (e.alive && Math.hypot(e.pos.x-nx, e.pos.z-nz) < BOMB_HIT_RADIUS_ENEMY * bm.hitMul) { exploded = true; hitEnemy = e; break; }
       }
     }
     if (!exploded) {
       for (const bs of world.bases) {
-        if (bs.alive && Math.hypot(bs.pos.x-nx, bs.pos.z-nz) < BOMB_HIT_RADIUS_BASE) { exploded = true; hitBase = bs; break; }
+        if (bs.alive && Math.hypot(bs.pos.x-nx, bs.pos.z-nz) < BOMB_HIT_RADIUS_BASE * bm.hitMul) { exploded = true; hitBase = bs; break; }
       }
     }
-    if (!exploded && bm.traveled >= BOMB_MAX_RANGE) exploded = true;
+    if (!exploded && bm.traveled >= bm.maxRange) exploded = true;
 
     if (exploded) {
       world.root.remove(bm.mesh);
@@ -1748,6 +1970,7 @@ function stepGame(dt) {
 
 
   updateEffects(dt);
+  updateItems(dt);
   updateHud();
 
   // ---- 勝敗判定 ----
@@ -1768,31 +1991,72 @@ function stepGame(dt) {
 /* =========================================================================
    画面遷移
 ========================================================================= */
+const ALL_SCREENS = ["screenTitle","screenHowTo","screenClear","screenWin","screenOver"];
 function showScreen(id) {
-  ["screenTitle","screenClear","screenWin","screenOver"].forEach(s => {
+  ALL_SCREENS.forEach(s => {
     document.getElementById(s).classList.toggle("hidden", s !== id);
   });
 }
 function hideAllScreens() {
-  ["screenTitle","screenClear","screenWin","screenOver"].forEach(s => {
-    document.getElementById(s).classList.add("hidden");
-  });
+  ALL_SCREENES_hide();
+}
+function ALL_SCREENES_hide() {
+  ALL_SCREENS.forEach(s => document.getElementById(s).classList.add("hidden"));
+}
+
+// 3ステージ通しての成績を記録して、最後に講評を出す
+let runStats = null;
+function resetRunStats() {
+  runStats = { stageTimes: [], totalDamage: 0, enemiesDefeated: 0, itemsTaken: 0 };
 }
 
 let currentStage = 1;
 function startGame(charId) {
   currentStage = 1;
   selectedChar = charId;
+  resetRunStats();
   buildWorld(currentStage, charId);
   updateBaseIcons();
   hideAllScreens();
   startBoardingSequence(charId);
 }
+
+function buildReview() {
+  const st = runStats || { stageTimes: [], totalDamage: 0, enemiesDefeated: 0, itemsTaken: 0 };
+  const totalUsed = st.stageTimes.reduce((a,b) => a+b, 0);
+  const avg = st.stageTimes.length ? totalUsed / st.stageTimes.length : 0;
+
+  // ランク判定：かかった時間と受けたダメージの合計で評価
+  let rank, comment;
+  if (avg <= 45 && st.totalDamage <= 40) {
+    rank = "SS"; comment = "スピードも まもりも かんぺき！ ぴよタンク たいちょう にんてい！";
+  } else if (avg <= 60 && st.totalDamage <= 80) {
+    rank = "S"; comment = "すばやく うごいて、てきの たまも よく よけました。おみごと！";
+  } else if (avg <= 80) {
+    rank = "A"; comment = "しっかり きちを こわしました。つぎは もっと はやく ねらってみよう！";
+  } else if (avg <= 100) {
+    rank = "B"; comment = "さいごまで あきらめずに クリア！ かべを つかって みを まもると もっと らくになるよ。";
+  } else {
+    rank = "C"; comment = "クリア おめでとう！ アイテムを ひろって パワーアップすると せんとうが らくになるよ。";
+  }
+
+  const lines = st.stageTimes.map((t,i) => `<div class="review-line">ステージ${i+1}：${Math.round(t)}びょう</div>`).join("");
+  document.getElementById("reviewCard").innerHTML = `
+    <div class="review-rank">ランク ${rank}</div>
+    ${lines}
+    <div class="review-line">たおした てき：${st.enemiesDefeated}たい</div>
+    <div class="review-line">ひろった アイテム：${st.itemsTaken}こ</div>
+    <div class="review-line">うけた ダメージ：${Math.round(st.totalDamage)}</div>
+    <div class="review-comment">${comment}</div>
+  `;
+}
 function onStageClear() {
   if (world.state !== "playing") return;
   world.state = "clearing";
   AudioSys.stageClear();
+  if (runStats) runStats.stageTimes.push(world.cfg.timeLimit - world.timeLeft);
   if (currentStage >= 3) {
+    buildReview();
     setTimeout(() => { showScreen("screenWin"); AudioSys.gameClear(); }, 500);
   } else {
     document.getElementById("clearTimeText").textContent = "のこり時間 " + Math.ceil(world.timeLeft) + "びょう ではかい！";
@@ -1808,6 +2072,10 @@ function onGameOver(reason) {
 }
 
 document.getElementById("btnStart").addEventListener("click", () => {
+  AudioSys.unlock();
+  showScreen("screenHowTo");
+});
+document.getElementById("btnHowToStart").addEventListener("click", () => {
   AudioSys.unlock();
   startGame(selectedChar);
 });
@@ -1881,9 +2149,25 @@ window.__G = {
     if (!alive.length) return null;
     return Math.hypot(alive[0].pos.x-world.player.pos.x, alive[0].pos.z-world.player.pos.z);
   },
+  itemCount: () => world ? world.items.length : null,
+  getBuffs: () => world ? Object.assign({}, world.buffs) : null,
+  dropItemHere: (id) => {
+    if (!world) return null;
+    const t = ITEM_TYPES.find(x => x.id === id) || ITEM_TYPES[0];
+    const pos = world.player.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(world.player.facing),0,Math.cos(world.player.facing)), 1.5);
+    const saved = ITEM_DROP_CHANCE;
+    maybeDropItemForced(pos, t);
+    return world.items.length;
+  },
+  killAllEnemiesProperly: () => {
+    if (!world) return 0;
+    let n = 0;
+    world.enemies.slice().forEach(e => { if (e.alive) { e.hp = 1; applyDamage(e, true, 1, "test"); n++; } });
+    return n;
+  },
   skipBoarding: () => {
     if (world && world.boarding) {
-      world.boarding.t = world.boarding.duration;
+      world.boarding.t = world.boarding.zoomDuration + world.boarding.duration;
       updateBoarding(0);
     }
   },
