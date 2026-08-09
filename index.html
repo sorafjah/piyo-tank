@@ -242,7 +242,6 @@ const ITEM_DURATION = 8.0;           // 効果時間（体力回復以外）
 const ITEM_LIFETIME = 12.0;          // 拾われずに消えるまでの時間
 const ITEM_TYPES = [
   { id:"speedUp",   label:"スピードアップ！", color:0x4fd1ff, weight:3 },
-  { id:"rangeUp",   label:"とびきょり アップ！", color:0xb4f23a, weight:3 },
   { id:"bigShot",   label:"だんがん きょだいか！", color:0xff9f1c, weight:3 },
   { id:"heal",      label:"たいりょく かいふく！", color:0x6bef7a, weight:3 },
   { id:"speedDown", label:"スピードダウン…", color:0xa88fd6, weight:2 },
@@ -1214,7 +1213,7 @@ function throwBomb(originPos, dirRad) {
   const dir = new THREE.Vector3(Math.sin(dirRad), 0, Math.cos(dirRad));
   const big = !!world.buffs.bigShot;
   const hitMul = big ? 2.0 : 1.0;                                  // 当たり判定2倍
-  const maxRange = BOMB_MAX_RANGE * (world.buffs.rangeUp ? 1.8 : 1);
+  const maxRange = BOMB_MAX_RANGE;
 
   const bombGeo = getBombGeometry();
   const bombMat = new THREE.MeshStandardMaterial({ color:0xb4f23a, roughness:0.55, metalness:0.05, flatShading:true, emissive:0x6f9c1a, emissiveIntensity:0.25 });
@@ -1263,12 +1262,14 @@ function pickItemType() {
 
 function maybeDropItem(pos) {
   if (Math.random() > ITEM_DROP_CHANCE) return;
-  maybeDropItemForced(pos, pickItemType());
+  if (world.items.length >= 1) return; // 画面には常に最大1個まで
+  spawnMysteryItem(pos);
 }
 
-function maybeDropItemForced(pos, type) {
+// 見た目は全部共通の「？」ボックス。中身（効果）は拾った瞬間に決める＝ガチャ方式
+function spawnMysteryItem(pos) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:type.color, roughness:0.35, metalness:0.2, emissive:type.color, emissiveIntensity:0.35 });
+  const mat = new THREE.MeshStandardMaterial({ color:0xffe066, roughness:0.3, metalness:0.25, emissive:0xffb703, emissiveIntensity:0.4 });
   const box = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.52), mat);
   g.add(box);
   const ring = new THREE.Mesh(
@@ -1279,7 +1280,7 @@ function maybeDropItemForced(pos, type) {
   g.add(ring);
   g.position.set(pos.x, 0.6, pos.z);
   world.root.add(g);
-  world.items.push({ mesh:g, type, pos:new THREE.Vector3(pos.x,0,pos.z), life:0 });
+  world.items.push({ mesh:g, pos:new THREE.Vector3(pos.x,0,pos.z), life:0 });
 }
 
 function updateItems(dt) {
@@ -1293,7 +1294,7 @@ function updateItems(dt) {
     if (it.life > ITEM_LIFETIME - 3) it.mesh.visible = Math.floor(it.life * 6) % 2 === 0;
 
     if (p.alive && Math.hypot(p.pos.x-it.pos.x, p.pos.z-it.pos.z) < 1.0) {
-      applyItemEffect(it.type);
+      applyItemEffect(pickItemType()); // 取った瞬間にガチャで中身が決まる
       world.root.remove(it.mesh);
       world.items.splice(i,1);
       continue;
@@ -2154,9 +2155,13 @@ window.__G = {
   dropItemHere: (id) => {
     if (!world) return null;
     const t = ITEM_TYPES.find(x => x.id === id) || ITEM_TYPES[0];
+    applyItemEffect(t);
+    return world.items.length;
+  },
+  spawnMysteryItemHere: () => {
+    if (!world) return null;
     const pos = world.player.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(world.player.facing),0,Math.cos(world.player.facing)), 1.5);
-    const saved = ITEM_DROP_CHANCE;
-    maybeDropItemForced(pos, t);
+    spawnMysteryItem(pos);
     return world.items.length;
   },
   killAllEnemiesProperly: () => {
