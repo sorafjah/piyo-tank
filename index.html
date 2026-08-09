@@ -190,6 +190,8 @@ import * as THREE from "three";
 ========================================================================= */
 const UNIT = 2;                 // 1タンク = 2 world units
 const LASER_RANGE = UNIT * 2;   // レーザー射程 2タンク
+const LASER_BOLT_LEN = UNIT * 1.3;   // 飛んでいくビーム自体の長さ
+const LASER_FLIGHT_SPEED = UNIT * 8; // 2タンク分を飛びきるのにかかる速さ
 const LASER_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;
 const BASE_HIT_TO_KILL = 6;
@@ -210,12 +212,12 @@ const CHAR_DEFS = [
 function stageConfig(stage) {
   // stage: 1,2,3
   const cfgs = {
-    1: { halfSize: 13*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:2.6, enemyFireInt:2.4, enemyRange:8*UNIT,
-         enemySpeed:2.6, respawnDelay:4.0, timeLimit:95, density:0.16 },
-    2: { halfSize: 17*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.3, enemyFireInt:2.0, enemyRange:8*UNIT,
-         enemySpeed:2.9, respawnDelay:3.5, timeLimit:115, density:0.18 },
-    3: { halfSize: 21*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:1.8, enemyFireInt:1.6, enemyRange:9*UNIT,
-         enemySpeed:3.3, respawnDelay:3.0, timeLimit:135, density:0.20 },
+    1: { halfSize: 13*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:2.6, enemyFireInt:2.6, enemyRange:8*UNIT,
+         enemySpeed:2.1, respawnDelay:4.0, timeLimit:95, density:0.16 },
+    2: { halfSize: 17*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.3, enemyFireInt:2.2, enemyRange:8*UNIT,
+         enemySpeed:2.4, respawnDelay:3.5, timeLimit:115, density:0.18 },
+    3: { halfSize: 21*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:1.8, enemyFireInt:1.8, enemyRange:9*UNIT,
+         enemySpeed:2.8, respawnDelay:3.0, timeLimit:135, density:0.20 },
   };
   return cfgs[stage];
 }
@@ -278,15 +280,15 @@ const canvas = document.getElementById("c");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fc7e8);
-scene.fog = new THREE.Fog(0x8fc7e8, 40, 105);
+scene.background = new THREE.Color(0x9fdcf5);
+scene.fog = new THREE.Fog(0x9fdcf5, 40, 105);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 250);
 camera.position.set(0, 12, 14);
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x3a5a2a, 0.9);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6fae52, 1.05);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+const sun = new THREE.DirectionalLight(0xffffff, 1.15);
 sun.position.set(20, 30, 10);
 scene.add(sun);
 
@@ -506,18 +508,18 @@ function buildWorld(stage, charId) {
   scene.add(root);
 
   // 地面
-  const groundMat = new THREE.MeshStandardMaterial({ color:0x5c9147, roughness:1.0 });
+  const groundMat = new THREE.MeshStandardMaterial({ color:0x8ee06b, roughness:0.95 });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(gen.half*2+6, gen.half*2+6), groundMat);
   ground.rotation.x = -Math.PI/2;
   root.add(ground);
 
   // グリッド模様（薄いライン）
-  const grid = new THREE.GridHelper(gen.half*2, Math.round(gen.half*2/UNIT), 0x3f7a35, 0x4f8a42);
+  const grid = new THREE.GridHelper(gen.half*2, Math.round(gen.half*2/UNIT), 0x6bcf5a, 0x7ada68);
   grid.position.y = 0.01;
   root.add(grid);
 
   // 外周壁（見た目つき・コリジョン用）
-  const wallMat = new THREE.MeshStandardMaterial({ color:0x8a6a4a, roughness:0.85 });
+  const wallMat = new THREE.MeshStandardMaterial({ color:0xff9457, roughness:0.6 });
   const wallObstacles = [];
   const boundaryThickness = 1.0;
   const boundaries = [
@@ -533,10 +535,12 @@ function buildWorld(stage, charId) {
     wallObstacles.push({ mesh, box:new THREE.Box3().setFromObject(mesh) });
   });
 
-  const obstacleMat = new THREE.MeshStandardMaterial({ color:0xb08968, roughness:0.85 });
+  const obstaclePalette = [0xffd166, 0x8ecae6, 0xf49aa0, 0x8fe0a8, 0xffb4e6, 0xb9a6ff]
+    .map(c => new THREE.MeshStandardMaterial({ color:c, roughness:0.55, metalness:0.05 }));
   const obstacleMeshes = [];
   gen.obstacleData.forEach(o => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), obstacleMat);
+    const mat = obstaclePalette[Math.floor(Math.random()*obstaclePalette.length)];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), mat);
     mesh.position.set(o.pos.x, o.h/2, o.pos.z);
     mesh.rotation.y = o.rotY;
     root.add(mesh);
@@ -565,8 +569,8 @@ function buildWorld(stage, charId) {
   root.add(player.mesh);
 
   // 基地
-  const baseMat = new THREE.MeshStandardMaterial({ color:0x8a3b3b, roughness:0.7 });
-  const spikeMat = new THREE.MeshStandardMaterial({ color:0x3a3a3a, roughness:0.5, metalness:0.3 });
+  const baseMat = new THREE.MeshStandardMaterial({ color:0xff5d5d, roughness:0.45, metalness:0.1 });
+  const spikeMat = new THREE.MeshStandardMaterial({ color:0xe0e6ea, roughness:0.35, metalness:0.5 });
   const bases = gen.basePositions.map((pos, i) => {
     const g = new THREE.Group();
     const core = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.25, 1.5, 8), baseMat);
@@ -591,7 +595,7 @@ function buildWorld(stage, charId) {
     root, cfg, gen, player, bases,
     enemies: [],
     projectiles: [],
-    beams: [],
+    laserBolts: [],
     blockerMeshList, allBlockers,
     stage,
     elapsed: 0,
@@ -604,14 +608,16 @@ function buildWorld(stage, charId) {
 /* =========================================================================
    敵タンク生成
 ========================================================================= */
-const ENEMY_HULL = 0xdd5544, ENEMY_ACCENT = 0x7a1f1f;
+const ENEMY_HULL = 0xff6b5b, ENEMY_ACCENT = 0xa62f2f;
 function spawnEnemyFrom(base) {
   const mesh = buildTank(ENEMY_HULL, ENEMY_ACCENT, "inu", 1.0);
   mesh.position.copy(base.pos);
   root_add(mesh);
   const enemy = {
     mesh, pos: base.pos.clone(), facing: 0, hp: ENEMY_HIT_TO_KILL,
-    fireTimer: 0.8 + Math.random()*0.6, alive:true, spawnBase: base.index,
+    fireTimer: 1.8 + Math.random()*0.8, alive:true, spawnBase: base.index,
+    standoff: world.cfg.enemyRange * (0.62 + Math.random()*0.14),
+    aware: false,
   };
   world.enemies.push(enemy);
 }
@@ -630,6 +636,32 @@ function circleHitsAnyBlocker(x, z, radius) {
     if (dx*dx + dz*dz < radius*radius) return true;
   }
   return false;
+}
+// 移動後にオブジェクトが障害物にめり込んでいたら押し出す（角で引っかからないように）
+function resolveBlockerPush(pos, radius) {
+  for (const b of world.allBlockers) {
+    const box = b.box;
+    const cx = THREE.MathUtils.clamp(pos.x, box.min.x, box.max.x);
+    const cz = THREE.MathUtils.clamp(pos.z, box.min.z, box.max.z);
+    const dx = pos.x - cx, dz = pos.z - cz;
+    const distSq = dx*dx + dz*dz;
+    if (distSq < radius*radius) {
+      const dist = Math.sqrt(distSq);
+      if (dist < 1e-4) {
+        const overL = pos.x - box.min.x, overR = box.max.x - pos.x;
+        const overT = pos.z - box.min.z, overB = box.max.z - pos.z;
+        const m = Math.min(overL, overR, overT, overB);
+        if (m === overL) pos.x = box.min.x - radius;
+        else if (m === overR) pos.x = box.max.x + radius;
+        else if (m === overT) pos.z = box.min.z - radius;
+        else pos.z = box.max.z + radius;
+      } else {
+        const push = (radius - dist) / dist;
+        pos.x += dx * push;
+        pos.z += dz * push;
+      }
+    }
+  }
 }
 
 const raycaster = new THREE.Raycaster();
@@ -679,7 +711,7 @@ function fireLaserHitscan(originPos, dirRad, ownerIsPlayer) {
     }
   }
 
-  spawnBeamVisual(origin, dir, nearestDist);
+  spawnLaserBolt(origin, dir, nearestDist);
 
   if (hitKind === "enemy" || hitKind === "player") {
     applyDamage(hitObj, ownerIsPlayer, 1, "laser");
@@ -689,14 +721,22 @@ function fireLaserHitscan(originPos, dirRad, ownerIsPlayer) {
   return nearestDist;
 }
 
-function spawnBeamVisual(origin, dir, length) {
-  const mat = new THREE.MeshBasicMaterial({ color:0xfff35c, transparent:true, opacity:0.9 });
-  const geo = new THREE.CylinderGeometry(0.04, 0.04, Math.max(0.05,length), 6);
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.copy(origin).addScaledVector(dir, length/2);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
-  world.root.add(mesh);
-  world.beams.push({ mesh, mat, life:0.12, maxLife:0.12 });
+function spawnLaserBolt(origin, dir, stopDist) {
+  // 青白く光る、実際に2タンク分の長さを飛んでいくビーム
+  const coreMat = new THREE.MeshBasicMaterial({ color:0xeaf9ff, transparent:true, opacity:0.95 });
+  const glowMat = new THREE.MeshBasicMaterial({ color:0x4fc3ff, transparent:true, opacity:0.45 });
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8), coreMat);
+  const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1, 8), glowMat);
+  const group = new THREE.Group();
+  group.add(glow); group.add(core);
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+  group.quaternion.copy(q);
+  world.root.add(group);
+  world.laserBolts.push({
+    group, core, glow, coreMat, glowMat,
+    origin: origin.clone(), dir: dir.clone(),
+    stopDist: Math.max(0.15, stopDist), travel:0, fadeT:0, resolved:false,
+  });
 }
 
 function applyDamage(entity, byPlayer, hits, sourceType) {
@@ -887,20 +927,39 @@ function stepGame(dt) {
   if (p.alive) {
     const mag = Math.min(1, Math.hypot(joyVec.x, joyVec.y));
     if (mag > 0.08) {
-      const desired = Math.atan2(joyVec.x, joyVec.y);
+      // スティックは「今カメラに映っている向き」基準（画面の左に倒したら画面の左へ進む）
+      const fwd = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
+      const right = new THREE.Vector3(Math.cos(p.facing), 0, -Math.sin(p.facing));
+      const desiredDir = new THREE.Vector3()
+        .addScaledVector(right, joyVec.x)
+        .addScaledVector(fwd, joyVec.y);
+      const desired = Math.atan2(desiredDir.x, desiredDir.z);
       let diff = desired - p.facing;
       while (diff > Math.PI) diff -= Math.PI*2;
       while (diff < -Math.PI) diff += Math.PI*2;
+
+      // 真後ろ寄りの入力ならスピンせず「バック」する
+      let reverse = false, targetFacing = desired;
+      if (Math.abs(diff) > Math.PI/2) {
+        reverse = true;
+        targetFacing = desired + Math.PI;
+        while (targetFacing > Math.PI) targetFacing -= Math.PI*2;
+        while (targetFacing < -Math.PI) targetFacing += Math.PI*2;
+      }
+      let diff2 = targetFacing - p.facing;
+      while (diff2 > Math.PI) diff2 -= Math.PI*2;
+      while (diff2 < -Math.PI) diff2 += Math.PI*2;
       const turnRate = 3.0 * p.def.turn * dt;
-      if (Math.abs(diff) < turnRate) p.facing = desired;
-      else p.facing += Math.sign(diff) * turnRate;
+      if (Math.abs(diff2) < turnRate) p.facing = targetFacing;
+      else p.facing += Math.sign(diff2) * turnRate;
 
       const speedMul = p.guard ? GUARD_SPEED_MULT : 1;
-      const speed = 5.2 * p.def.speed * speedMul * mag;
+      const baseSpeed = 5.2 * p.def.speed * speedMul * mag;
+      const speed = reverse ? -baseSpeed * 0.62 : baseSpeed;
       const nx = p.pos.x + Math.sin(p.facing) * speed * dt;
       const nz = p.pos.z + Math.cos(p.facing) * speed * dt;
-      if (!circleHitsAnyBlocker(nx, p.pos.z, 0.62)) p.pos.x = nx;
-      if (!circleHitsAnyBlocker(p.pos.x, nz, 0.62)) p.pos.z = nz;
+      p.pos.x = nx; p.pos.z = nz;
+      resolveBlockerPush(p.pos, 0.62);
     }
     p.mesh.position.set(p.pos.x, 0, p.pos.z);
     p.mesh.rotation.y = p.facing;
@@ -950,35 +1009,48 @@ function stepGame(dt) {
   world.enemies = world.enemies.filter(e => e.alive || performance.now() - (e.deadAt||0) < 1);
 
   // ---- 敵タンクAI ----
+  const detectRange = cfg.enemyRange * 1.55;
   world.enemies.forEach(e => {
     if (!e.alive) return;
     const toP = new THREE.Vector3(p.pos.x - e.pos.x, 0, p.pos.z - e.pos.z);
     const dist = toP.length();
-    const desiredFacing = Math.atan2(toP.x, toP.z);
-    let diff = desiredFacing - e.facing;
-    while (diff > Math.PI) diff -= Math.PI*2;
-    while (diff < -Math.PI) diff += Math.PI*2;
-    const turnRate = 2.6 * dt;
-    if (Math.abs(diff) < turnRate) e.facing = desiredFacing;
-    else e.facing += Math.sign(diff) * turnRate;
 
-    const engageMin = 4.0;
-    if (dist > engageMin + 1.0) {
-      const speed = cfg.enemySpeed;
-      const nx = e.pos.x + Math.sin(e.facing) * speed * dt;
-      const nz = e.pos.z + Math.cos(e.facing) * speed * dt;
-      if (!circleHitsAnyBlocker(nx, e.pos.z, 0.62)) e.pos.x = nx;
-      if (!circleHitsAnyBlocker(e.pos.x, nz, 0.62)) e.pos.z = nz;
+    // 索敵：範囲外ではまだ気づいていない（まっすぐ突撃してこない）
+    if (!e.aware && dist <= detectRange) e.aware = true;
+
+    if (e.aware) {
+      const desiredFacing = Math.atan2(toP.x, toP.z);
+      let diff = desiredFacing - e.facing;
+      while (diff > Math.PI) diff -= Math.PI*2;
+      while (diff < -Math.PI) diff += Math.PI*2;
+      const turnRate = 2.1 * dt;
+      if (Math.abs(diff) < turnRate) e.facing = desiredFacing;
+      else e.facing += Math.sign(diff) * turnRate;
+
+      if (dist > e.standoff + 1.0) {
+        const speed = cfg.enemySpeed;
+        e.pos.x += Math.sin(e.facing) * speed * dt;
+        e.pos.z += Math.cos(e.facing) * speed * dt;
+        resolveBlockerPush(e.pos, 0.62);
+      } else if (dist < e.standoff - 1.4) {
+        // 近づきすぎたら少し距離を取る（一直線に突っ込みすぎない）
+        const speed = cfg.enemySpeed * 0.6;
+        e.pos.x -= Math.sin(e.facing) * speed * dt;
+        e.pos.z -= Math.cos(e.facing) * speed * dt;
+        resolveBlockerPush(e.pos, 0.62);
+      }
+    } else {
+      e.facing += dt * 0.3; // 未発見時はゆっくり周囲を見る程度
     }
     e.mesh.position.set(e.pos.x, 0, e.pos.z);
     e.mesh.rotation.y = e.facing;
 
-    if (dist <= cfg.enemyRange && p.alive) {
+    if (e.aware && dist <= cfg.enemyRange && p.alive) {
       e.fireTimer -= dt;
       if (e.fireTimer <= 0) {
         e.fireTimer = cfg.enemyFireInt;
         AudioSys.enemyShot();
-        spawnProjectile(e.pos, p.pos, 9.5, 12, 0xdd5544);
+        spawnProjectile(e.pos, p.pos, 9.5, 12, 0xff6b5b);
       }
     }
   });
@@ -1010,12 +1082,24 @@ function stepGame(dt) {
     }
   }
 
-  // ---- レーザービーム表示のフェード ----
-  for (let i = world.beams.length-1; i >= 0; i--) {
-    const b = world.beams[i];
-    b.life -= dt;
-    b.mat.opacity = Math.max(0, b.life / b.maxLife) * 0.9;
-    if (b.life <= 0) { world.root.remove(b.mesh); world.beams.splice(i,1); }
+  // ---- レーザービーム（実際に飛んでいく演出） ----
+  for (let i = world.laserBolts.length-1; i >= 0; i--) {
+    const b = world.laserBolts[i];
+    if (!b.resolved) {
+      b.travel = Math.min(b.stopDist, b.travel + LASER_FLIGHT_SPEED*dt);
+      const front = b.travel;
+      const back = Math.max(0, front - LASER_BOLT_LEN);
+      const len = Math.max(0.03, front - back);
+      const mid = (front + back) / 2;
+      b.group.position.copy(b.origin).addScaledVector(b.dir, mid);
+      b.core.scale.y = len; b.glow.scale.y = len;
+      if (b.travel >= b.stopDist) b.resolved = true;
+    } else {
+      b.fadeT += dt;
+      const k = Math.max(0, 1 - b.fadeT/0.14);
+      b.coreMat.opacity = 0.95*k; b.glowMat.opacity = 0.45*k;
+      if (b.fadeT > 0.16) { world.root.remove(b.group); world.laserBolts.splice(i,1); }
+    }
   }
 
   updateHud();
