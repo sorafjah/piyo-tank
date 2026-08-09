@@ -184,7 +184,7 @@ const LASER_FLIGHT_SPEED = UNIT * 22;// ビームの飛翔速度
 const LASER_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;
 const BASE_HIT_TO_KILL = 4;
-const MAX_ENEMIES = 1;
+const MAX_ENEMIES = 2;
 const PLAYER_HP_MAX = 100;
 const PLAYER_INVULN = 0.5;
 const GUARD_DAMAGE_MULT = 0.5;
@@ -672,14 +672,32 @@ function buildWorld(stage, charId) {
     core.position.y = 0.75;
     g.add(core);
     const spikesGroup = new THREE.Group();
-    for (let s=0; s<7; s++) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.5, 6), spikeMat);
-      const ang = (s / 7) * Math.PI * 2;
-      spike.position.set(Math.cos(ang)*0.9, 1.55, Math.sin(ang)*0.9);
-      spike.rotation.x = Math.PI/2 - 0.5;
-      spike.lookAt(new THREE.Vector3(Math.cos(ang)*2.2, 1.9, Math.sin(ang)*2.2));
+
+    // 上部：外向き・斜め上に伸びるトゲ（2倍サイズ）
+    const topCount = 8;
+    for (let s=0; s<topCount; s++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.0, 6), spikeMat);
+      const ang = (s / topCount) * Math.PI * 2;
+      spike.position.set(Math.cos(ang)*0.95, 1.6, Math.sin(ang)*0.95);
+      spike.lookAt(new THREE.Vector3(Math.cos(ang)*2.6, 2.55, Math.sin(ang)*2.6));
+      spike.rotateX(Math.PI/2);
       spikesGroup.add(spike);
     }
+    // 胴体側面：真横に放射状に突き出るトゲ
+    const sideCount = 10;
+    for (let s=0; s<sideCount; s++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.85, 6), spikeMat);
+      const ang = (s / sideCount) * Math.PI * 2 + 0.31;
+      spike.position.set(Math.cos(ang)*1.05, 0.8, Math.sin(ang)*1.05);
+      spike.lookAt(new THREE.Vector3(Math.cos(ang)*3.0, 0.8, Math.sin(ang)*3.0));
+      spike.rotateX(Math.PI/2);
+      spikesGroup.add(spike);
+    }
+    // 天辺の一本（真上向き）
+    const topSpike = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.1, 8), spikeMat);
+    topSpike.position.set(0, 2.05, 0);
+    spikesGroup.add(topSpike);
+
     g.add(spikesGroup);
     g.position.copy(pos);
     root.add(g);
@@ -1518,6 +1536,14 @@ window.__G = {
     const alive = world.enemies.filter(e=>e.alive);
     if (!alive.length) return null;
     return Math.hypot(alive[0].pos.x-world.player.pos.x, alive[0].pos.z-world.player.pos.z);
+  },
+  teleportNearBase: (idx) => {
+    if (!world) return null;
+    const b = world.bases[idx||0];
+    if (!b) return null;
+    world.player.pos.set(b.pos.x, 0, b.pos.z + 4);
+    world.player.facing = Math.PI;
+    return { x: world.player.pos.x, z: world.player.pos.z };
   },
   debugEnemy: () => {
     if (!world) return null;
