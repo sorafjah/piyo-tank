@@ -406,9 +406,9 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
 function generateStage(stage) {
   const cfg = stageConfig(stage);
   const half = cfg.halfSize;
-  const roughCell = UNIT * 2.2;
+  const roughCell = UNIT * 3.1;
   let cols = Math.round((half*2) / roughCell);
-  cols = THREE.MathUtils.clamp(cols, 7, 14);
+  cols = THREE.MathUtils.clamp(cols, 6, 10);
   const rows = cols;
   const cellSize = (half*2) / cols; // マップぴったりに収まるよう再計算
   const toWorld = (cx, cz) => new THREE.Vector3(-half + (cx+0.5)*cellSize, 0, -half + (cz+0.5)*cellSize);
@@ -462,7 +462,7 @@ function generateStage(stage) {
   }
 
   // ---- ブレイド処理：ループや別ルートを増やして、行き止まり感・単調さを減らす ----
-  const braidRate = 0.24;
+  const braidRate = 0.46;
   for (let x=0;x<cols-1;x++) for (let z=0;z<rows;z++) {
     if (wallRight[x][z] && Math.random() < braidRate) wallRight[x][z] = false;
   }
@@ -490,8 +490,8 @@ function generateStage(stage) {
       opts[Math.floor(Math.random()*opts.length)]();
     }
   }
-  ensureOpenness(startCell.x, startCell.z, 2);
-  baseCells.forEach(b => ensureOpenness(b.x, b.z, 2));
+  ensureOpenness(startCell.x, startCell.z, 3);
+  baseCells.forEach(b => ensureOpenness(b.x, b.z, 3));
 
   // ---- スタート→基地が一直線に見通せてしまう場合は、その線上に壁を差し込む ----
   function cellConnectivityHasBase(bx, bz) {
@@ -586,6 +586,7 @@ function generateStage(stage) {
     startPos: toWorld(startCell.x, startCell.z),
     basePositions: baseCells.map(b => toWorld(b.x, b.z)),
     wallSegments,
+    wallRight, wallDown,
   };
 }
 
@@ -687,6 +688,7 @@ function buildWorld(stage, charId) {
 
   world = {
     root, cfg, gen, player, bases,
+    maze: { wallRight: gen.wallRight, wallDown: gen.wallDown, cols: gen.cols, rows: gen.rows, cellSize: gen.cellSize, half: gen.half },
     enemies: [],
     projectiles: [],
     laserBolts: [],
@@ -702,6 +704,65 @@ function buildWorld(stage, charId) {
 }
 
 /* =========================================================================
+   迷路パスファインディング（敵タンクの経路探索用）
+========================================================================= */
+function worldToCell(pos) {
+  const m = world.maze;
+  const cx = THREE.MathUtils.clamp(Math.floor((pos.x+m.half)/m.cellSize), 0, m.cols-1);
+  const cz = THREE.MathUtils.clamp(Math.floor((pos.z+m.half)/m.cellSize), 0, m.rows-1);
+  return { x:cx, z:cz };
+}
+function cellCenter(cx, cz) {
+  const m = world.maze;
+  return new THREE.Vector3(-m.half+(cx+0.5)*m.cellSize, 0, -m.half+(cz+0.5)*m.cellSize);
+}
+function mazeOpen(ax, az, bx, bz) {
+  const m = world.maze;
+  if (bx === ax+1) return !m.wallRight[ax][az];
+  if (bx === ax-1) return !m.wallRight[bx][bz];
+  if (bz === az+1) return !m.wallDown[ax][az];
+  if (bz === az-1) return !m.wallDown[bx][bz];
+  return ax === bx && az === bz;
+}
+// BFSで迷路内の最短経路（通過セル列）を求める。到達不能ならnull
+function findPathCells(fromCell, toCell) {
+  const m = world.maze;
+  if (fromCell.x === toCell.x && fromCell.z === toCell.z) return [];
+  const visited = Array.from({length:m.cols}, () => Array(m.rows).fill(false));
+  const prev = {};
+  const key = (x,z) => x + "_" + z;
+  const queue = [fromCell];
+  visited[fromCell.x][fromCell.z] = true;
+  let found = false;
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur.x === toCell.x && cur.z === toCell.z) { found = true; break; }
+    const neigh = [];
+    if (cur.x>0) neigh.push({x:cur.x-1, z:cur.z});
+    if (cur.x<m.cols-1) neigh.push({x:cur.x+1, z:cur.z});
+    if (cur.z>0) neigh.push({x:cur.x, z:cur.z-1});
+    if (cur.z<m.rows-1) neigh.push({x:cur.x, z:cur.z+1});
+    for (const n of neigh) {
+      if (visited[n.x][n.z]) continue;
+      if (!mazeOpen(cur.x, cur.z, n.x, n.z)) continue;
+      visited[n.x][n.z] = true;
+      prev[key(n.x,n.z)] = cur;
+      queue.push(n);
+    }
+  }
+  if (!found) return null;
+  const path = [];
+  let cur = toCell;
+  while (!(cur.x === fromCell.x && cur.z === fromCell.z)) {
+    path.push(cur);
+    cur = prev[key(cur.x, cur.z)];
+    if (!cur) break;
+  }
+  path.reverse();
+  return path;
+}
+
+/* =========================================================================
    敵タンク生成
 ========================================================================= */
 const ENEMY_HULL = 0xff6b5b, ENEMY_ACCENT = 0xa62f2f;
@@ -713,7 +774,7 @@ function spawnEnemyFrom(base) {
     mesh, pos: base.pos.clone(), facing: 0, hp: ENEMY_HIT_TO_KILL,
     fireTimer: 1.0 + Math.random()*0.5, alive:true, spawnBase: base.index,
     standoff: world.cfg.enemyRange * (0.42 + Math.random()*0.14),
-    aware: false,
+    aware: false, path: null, pathTimer: 0,
   };
   world.enemies.push(enemy);
 }
@@ -1195,7 +1256,7 @@ function stepGame(dt) {
   }
   world.enemies = world.enemies.filter(e => e.alive || performance.now() - (e.deadAt||0) < 1);
 
-  // ---- 敵タンクAI ----
+  // ---- 敵タンクAI（迷路の経路探索つき） ----
   const detectRange = cfg.enemyRange * 2.4;
   world.enemies.forEach(e => {
     if (!e.alive) return;
@@ -1205,25 +1266,62 @@ function stepGame(dt) {
     // 索敵：範囲外ではまだ気づいていない（まっすぐ突撃してこない）
     if (!e.aware && dist <= detectRange) e.aware = true;
 
-    if (e.aware) {
-      const desiredFacing = Math.atan2(toP.x, toP.z);
-      let diff = desiredFacing - e.facing;
-      while (diff > Math.PI) diff -= Math.PI*2;
-      while (diff < -Math.PI) diff += Math.PI*2;
-      const turnRate = 2.1 * dt;
-      if (Math.abs(diff) < turnRate) e.facing = desiredFacing;
-      else e.facing += Math.sign(diff) * turnRate;
+    let target = null;
+    let doStandoff = false;
 
-      if (dist > e.standoff + 1.0) {
+    if (e.aware) {
+      // 経路を定期的に再計算（毎フレームは重いので間引く）
+      e.pathTimer -= dt;
+      if (e.pathTimer <= 0) {
+        const fromC = worldToCell(e.pos);
+        const toC = worldToCell(p.pos);
+        e.path = findPathCells(fromC, toC);
+        e.pathTimer = 0.5 + Math.random()*0.3;
+      }
+      if (e.path && e.path.length > 0) {
+        const wp = cellCenter(e.path[0].x, e.path[0].z);
+        const dw = Math.hypot(wp.x - e.pos.x, wp.z - e.pos.z);
+        if (dw < 0.9) { e.path.shift(); }
+        if (e.path.length > 0) {
+          const wp2 = cellCenter(e.path[0].x, e.path[0].z);
+          target = wp2;
+        } else {
+          target = p.pos; doStandoff = true;
+        }
+      } else {
+        // 同じマス、または経路が見つからない＝目の前にいるとみなして直接接近
+        target = p.pos; doStandoff = true;
+      }
+
+      const toT = new THREE.Vector3(target.x - e.pos.x, 0, target.z - e.pos.z);
+      const tDist = toT.length();
+      if (tDist > 0.05) {
+        const desiredFacing = Math.atan2(toT.x, toT.z);
+        let diff = desiredFacing - e.facing;
+        while (diff > Math.PI) diff -= Math.PI*2;
+        while (diff < -Math.PI) diff += Math.PI*2;
+        const turnRate = 2.4 * dt;
+        if (Math.abs(diff) < turnRate) e.facing = desiredFacing;
+        else e.facing += Math.sign(diff) * turnRate;
+      }
+
+      if (doStandoff) {
+        if (dist > e.standoff + 1.0) {
+          const speed = cfg.enemySpeed;
+          e.pos.x += Math.sin(e.facing) * speed * dt;
+          e.pos.z += Math.cos(e.facing) * speed * dt;
+          resolveBlockerPush(e.pos, 0.62);
+        } else if (dist < e.standoff - 1.4) {
+          const speed = cfg.enemySpeed * 0.6;
+          e.pos.x -= Math.sin(e.facing) * speed * dt;
+          e.pos.z -= Math.cos(e.facing) * speed * dt;
+          resolveBlockerPush(e.pos, 0.62);
+        }
+      } else {
+        // 通路移動中は迂回せず経路の目標点へまっすぐ進む
         const speed = cfg.enemySpeed;
         e.pos.x += Math.sin(e.facing) * speed * dt;
         e.pos.z += Math.cos(e.facing) * speed * dt;
-        resolveBlockerPush(e.pos, 0.62);
-      } else if (dist < e.standoff - 1.4) {
-        // 近づきすぎたら少し距離を取る（一直線に突っ込みすぎない）
-        const speed = cfg.enemySpeed * 0.6;
-        e.pos.x -= Math.sin(e.facing) * speed * dt;
-        e.pos.z -= Math.cos(e.facing) * speed * dt;
         resolveBlockerPush(e.pos, 0.62);
       }
     } else {
@@ -1232,7 +1330,7 @@ function stepGame(dt) {
     e.mesh.position.set(e.pos.x, 0, e.pos.z);
     e.mesh.rotation.y = e.facing;
 
-    if (e.aware && dist <= cfg.enemyRange && p.alive) {
+    if (e.aware && doStandoff && dist <= cfg.enemyRange && p.alive) {
       e.fireTimer -= dt;
       if (e.fireTimer <= 0) {
         e.fireTimer = cfg.enemyFireInt;
@@ -1415,6 +1513,23 @@ window.__G = {
   },
   getPos: () => world ? { x: world.player.pos.x, z: world.player.pos.z } : null,
   getEnemyBases: () => world ? world.enemies.filter(e=>e.alive).map(e=>e.spawnBase) : [],
+  getEnemyDist: () => {
+    if (!world) return null;
+    const alive = world.enemies.filter(e=>e.alive);
+    if (!alive.length) return null;
+    return Math.hypot(alive[0].pos.x-world.player.pos.x, alive[0].pos.z-world.player.pos.z);
+  },
+  debugEnemy: () => {
+    if (!world) return null;
+    const e = world.enemies.find(x=>x.alive);
+    if (!e) return null;
+    return {
+      pos: {x:e.pos.x, z:e.pos.z}, facing: e.facing, aware: e.aware,
+      path: e.path, pathTimer: e.pathTimer,
+      playerPos: {x:world.player.pos.x, z:world.player.pos.z},
+      enemyCell: worldToCell(e.pos), playerCell: worldToCell(world.player.pos),
+    };
+  },
   killAllEnemies: () => { if (world) world.enemies.forEach(e => { if (e.alive) { e.alive=false; world.root.remove(e.mesh); } }); },
   forceRespawn: () => { if (world) world.respawnTimer = 0; },
   setTimeLeft: (t) => { if (world) world.timeLeft = t; },
