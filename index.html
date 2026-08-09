@@ -178,17 +178,19 @@ import * as THREE from "three";
    ぴよタンク — 定数・設定
 ========================================================================= */
 const UNIT = 2;                 // 1タンク = 2 world units
-const BOMB_MAX_RANGE = UNIT * 5.5;   // 爆弾の最大射程（これ以上飛ぶと自然に爆発）
-const BOMB_SPEED = UNIT * 5.2;       // 爆弾の飛行速度（前方へ直進）
-const BOMB_AOE_RADIUS = 2.0;         // 着弾後のダメージ範囲
+const BOMB_MAX_RANGE = UNIT * 4.4;   // 爆弾の最大射程（20%短縮、これ以上飛ぶと自然に爆発）
+const BOMB_SPEED = UNIT * 4.16;      // 爆弾の飛行速度（20%減、前方へ直進）
+const BOMB_HIT_RADIUS_ENEMY = 0.55;  // 直撃判定（この距離まで近づいたら命中）
+const BOMB_HIT_RADIUS_BASE = 0.95;
 const BOMB_COOLDOWN = 2.0;
-const ENEMY_HIT_TO_KILL = 1;         // 爆弾1発で撃破
-const BASE_HIT_TO_KILL = 3;
+const ENEMY_HIT_TO_KILL = 2;         // レーザーと同じ：敵は2発で撃破
+const BASE_HIT_TO_KILL = 4;          // レーザーと同じ：基地は4発で撃破
 const MAX_ENEMIES = 2;
 const PLAYER_HP_MAX = 100;
 const PLAYER_INVULN = 0.5;
 const GUARD_DAMAGE_MULT = 0.5;
 const GUARD_SPEED_MULT = 0.55;
+const GUARD_MAX_DURATION = 2.0;      // ガード持続は最大2秒
 const CAM_DIST = 7.2, CAM_HEIGHT = 4.0, CAM_LERP = 6.5;
 const DT_CLAMP = 1 / 30;
 
@@ -257,6 +259,7 @@ const AudioSys = (() => {
     enemyShot() { tone(340,0.14,"sawtooth",0.11,160); },
     playerHit() { noise(0.22,0.22); tone(140,0.22,"sawtooth",0.14,60); },
     guardOn() { tone(500,0.08,"triangle",0.1,700); },
+    guardPop() { tone(420,0.09,"sine",0.14,980); tone(760,0.08,"sine",0.1,1300,0.05); },
     stageClear() { [660,880,1100].forEach((f,i)=>tone(f,0.22,"square",0.15,null,i*0.14)); },
     gameClear() { [523,659,784,1047].forEach((f,i)=>tone(f,0.28,"square",0.16,null,i*0.16)); },
     gameOver() { tone(300,0.5,"sawtooth",0.16,60); },
@@ -631,7 +634,7 @@ function renderCharPreview(canvas, speciesId, bgTint) {
     const model = buildCharacterModel(speciesId);
     const s = 1.5 / info.height;
     model.scale.setScalar(s);
-    model.position.y = -info.height*s*0.5 + 0.05;
+    model.position.y = -0.75; // 正規化した高さ(1.5)の中心をy=0に合わせる
     model.rotation.y = -0.55;
     pScene.add(model);
     const hemi = new THREE.HemisphereLight(0xffffff, 0x998866, 1.15);
@@ -639,7 +642,7 @@ function renderCharPreview(canvas, speciesId, bgTint) {
     const dl = new THREE.DirectionalLight(0xffffff, 0.9);
     dl.position.set(2, 3, 2.5);
     pScene.add(dl);
-    pCam.position.set(0, 0.15, 2.5);
+    pCam.position.set(0, 0, 3.35); // 余白を確保して頭が切れないよう十分に引く
     pCam.lookAt(0, 0, 0);
     previewRenderer.render(pScene, pCam);
   } catch (e) { /* プレビュー描画に失敗しても選択自体には影響しない */ }
@@ -648,7 +651,7 @@ function renderCharPreview(canvas, speciesId, bgTint) {
 /* =========================================================================
    タンク（自機／敵）ビルド
 ========================================================================= */
-const MOUNT_SCALE_MULT = { piyo:1.2, panda:1.2, inu:1.0, neko:1.0 };
+const MOUNT_SCALE_MULT = { piyo:1.44, panda:1.2, inu:1.0, neko:1.0 };
 function buildTank(hullColor, accentColor, speciesId, scaleMul=1, isPlayer=true) {
   const g = new THREE.Group();
   const hullMat = new THREE.MeshStandardMaterial({ color: hullColor, roughness:0.6, metalness:0.15 });
@@ -948,6 +951,8 @@ function buildWorld(stage, charId) {
     hp: PLAYER_HP_MAX,
     laserCooldown: 0,
     guard: false,
+    guardTimer: 0,
+    guardLocked: false,
     invuln: 0,
     alive: true,
   };
@@ -1137,23 +1142,20 @@ function resolveBlockerPush(pos, radius) {
 
 const raycaster = new THREE.Raycaster();
 
-// 自機の爆弾を投げる：正面へ直進し、壁か的に当たる・または最大射程で自然に爆発
+// 自機の弾を投げる：正面へ直進し、壁か的に当たる・または最大射程で自然に消える
 function throwBomb(originPos, dirRad) {
   const dir = new THREE.Vector3(Math.sin(dirRad), 0, Math.cos(dirRad));
 
   const bombGeo = getBombGeometry();
-  const bombMat = new THREE.MeshStandardMaterial({ color:0x3a3f45, roughness:0.75, metalness:0.15, flatShading:true });
+  const bombMat = new THREE.MeshStandardMaterial({ color:0xb4f23a, roughness:0.55, metalness:0.05, flatShading:true, emissive:0x6f9c1a, emissiveIntensity:0.25 });
   const mesh = new THREE.Mesh(bombGeo, bombMat);
-  const fuse = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), new THREE.MeshBasicMaterial({ color:0xff8c1a }));
-  fuse.position.set(0, 0.2, 0);
-  mesh.add(fuse);
   mesh.position.copy(originPos); mesh.position.y = 0.55;
   world.root.add(mesh);
 
   world.bombs.push({ mesh, dir, traveled:0 });
 }
 
-// 何面体のごつごつした爆弾ジオメトリ（頂点を少しランダムにずらして岩っぽくする）
+// 何面体のごつごつした弾ジオメトリ（頂点を少しランダムにずらして岩っぽくする）
 let _bombGeoCache = null;
 function getBombGeometry() {
   if (_bombGeoCache) return _bombGeoCache;
@@ -1171,21 +1173,11 @@ function getBombGeometry() {
   return geo;
 }
 
-function explodeBombAt(landPos) {
-  spawnExplosion(landPos, 2.2, [0xff8c1a, 0xffd166, 0xff5d5d, 0xffffff]);
-  AudioSys.baseDown();
-  world.enemies.forEach(e => {
-    if (!e.alive) return;
-    if (Math.hypot(e.pos.x-landPos.x, e.pos.z-landPos.z) <= BOMB_AOE_RADIUS) {
-      applyDamage(e, true, 1, "bomb");
-    }
-  });
-  world.bases.forEach(b => {
-    if (!b.alive) return;
-    if (Math.hypot(b.pos.x-landPos.x, b.pos.z-landPos.z) <= BOMB_AOE_RADIUS) {
-      applyBaseDamage(b);
-    }
-  });
+// 直撃した相手にだけダメージを与える（壁や射程切れでは何も起きない）
+function explodeBombAt(pos, hitEnemy, hitBase) {
+  spawnExplosion(pos, hitEnemy || hitBase ? 1.8 : 0.6, [0xd6ff6b, 0xb4f23a, 0xffffff]);
+  if (hitEnemy) { AudioSys.hit(); applyDamage(hitEnemy, true, 1, "bomb"); }
+  else if (hitBase) { applyBaseDamage(hitBase); }
 }
 
 /* ---------------- 命中エフェクト（ドカーン） ---------------- */
@@ -1518,7 +1510,19 @@ function stepGame(dt) {
   world.timeLeft -= dt;
   if (p.laserCooldown > 0) p.laserCooldown = Math.max(0, p.laserCooldown - dt);
   if (p.invuln > 0) p.invuln = Math.max(0, p.invuln - dt);
-  p.guard = guardPressed && p.alive;
+
+  // ---- ガード：最大2秒、時間切れ or 手を離したら「ぴょこん」と顔を出す ----
+  const wantGuard = guardPressed && p.alive;
+  if (wantGuard && !p.guardLocked) {
+    if (!p.guard) { p.guard = true; p.guardTimer = 0; }
+    p.guardTimer += dt;
+    if (p.guardTimer >= GUARD_MAX_DURATION) {
+      p.guard = false; p.guardLocked = true; AudioSys.guardPop();
+    }
+  } else {
+    if (p.guard) { p.guard = false; AudioSys.guardPop(); }
+    if (!guardPressed) p.guardLocked = false;
+  }
   if (firePressed) tryFire();
 
   // ---- 自機移動 ----
@@ -1573,7 +1577,7 @@ function stepGame(dt) {
       if (base.fireTimer <= 0 && p.alive) {
         base.fireTimer = cfg.baseFireInt;
         AudioSys.baseShot();
-        spawnProjectile(base.pos, p.pos, 7.0, 12, 0xffa53d, 1.5);
+        spawnProjectile(base.pos, p.pos, 7.0, 12, 0xb659ff, 1.5);
       }
     }
   });
@@ -1678,7 +1682,7 @@ function stepGame(dt) {
         e.fireTimer = cfg.enemyFireInt;
         AudioSys.enemyShot();
         const muzzle = e.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(e.facing),0,Math.cos(e.facing)), 1.15);
-        spawnProjectile(muzzle, p.pos, 7.6, 10, 0xff5c7a, 0.55);
+        spawnProjectile(muzzle, p.pos, 7.6, 10, 0xff9f1c, 0.55);
       }
     }
   });
@@ -1711,25 +1715,26 @@ function stepGame(dt) {
     }
   }
 
-  // ---- 爆弾（正面へ直進し、壁・的への衝突または最大射程で爆発） ----
+  // ---- 弾（正面へ直進し、直撃したときだけダメージ） ----
   for (let i = world.bombs.length-1; i >= 0; i--) {
     const bm = world.bombs[i];
     const step = BOMB_SPEED * dt;
     const nx = bm.mesh.position.x + bm.dir.x * step;
     const nz = bm.mesh.position.z + bm.dir.z * step;
     let exploded = circleHitsAnyBlocker(nx, nz, 0.22);
+    let hitEnemy = null, hitBase = null;
     bm.traveled += step;
     bm.mesh.position.x = nx; bm.mesh.position.z = nz;
     bm.mesh.rotation.x += dt * 7; bm.mesh.rotation.z += dt * 5;
 
     if (!exploded) {
       for (const e of world.enemies) {
-        if (e.alive && Math.hypot(e.pos.x-nx, e.pos.z-nz) < 0.55) { exploded = true; break; }
+        if (e.alive && Math.hypot(e.pos.x-nx, e.pos.z-nz) < BOMB_HIT_RADIUS_ENEMY) { exploded = true; hitEnemy = e; break; }
       }
     }
     if (!exploded) {
       for (const bs of world.bases) {
-        if (bs.alive && Math.hypot(bs.pos.x-nx, bs.pos.z-nz) < 0.95) { exploded = true; break; }
+        if (bs.alive && Math.hypot(bs.pos.x-nx, bs.pos.z-nz) < BOMB_HIT_RADIUS_BASE) { exploded = true; hitBase = bs; break; }
       }
     }
     if (!exploded && bm.traveled >= BOMB_MAX_RANGE) exploded = true;
@@ -1737,7 +1742,7 @@ function stepGame(dt) {
     if (exploded) {
       world.root.remove(bm.mesh);
       world.bombs.splice(i,1);
-      explodeBombAt(new THREE.Vector3(nx, 0, nz));
+      explodeBombAt(new THREE.Vector3(nx, 0, nz), hitEnemy, hitBase);
     }
   }
 
@@ -1895,7 +1900,7 @@ window.__G = {
     if (!world) return null;
     const p = world.player;
     const from = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 6);
-    spawnProjectile(from, p.pos, 3.0, 10, 0xff5c7a, 0.55);
+    spawnProjectile(from, p.pos, 3.0, 10, 0xff9f1c, 0.55);
     return { from: {x:from.x,z:from.z} };
   },
   debugBombs: () => {
