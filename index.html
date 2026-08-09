@@ -264,6 +264,306 @@ const AudioSys = (() => {
 })();
 
 /* =========================================================================
+   キャラクターモデル（ぴよ・ぱんだ・いぬ・ねこ）
+   既存プロジェクトから抜き出したビルド関数をそのまま使用
+========================================================================= */
+function createChick() {
+  const group = new THREE.Group();
+  const bodyGeo = new THREE.SphereGeometry(0.55, 20, 16);
+  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: 0xf6c143, roughness: 0.65, metalness: 0.05 }));
+  body.position.set(0, 0.75, 0);
+  group.add(body);
+  const headGeo = new THREE.SphereGeometry(0.4, 20, 16);
+  const head = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({ color: 0xf6c143, roughness: 0.65, metalness: 0.05 }));
+  head.position.set(0, 1.35, 0.08);
+  group.add(head);
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.65, metalness: 0.05 }));
+  eyeL.position.set(-0.15, 1.42, 0.42);
+  group.add(eyeL);
+  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.65, metalness: 0.05 }));
+  eyeR.position.set(0.15, 1.42, 0.42);
+  group.add(eyeR);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.2, 12), new THREE.MeshStandardMaterial({ color: 0xf5941f, roughness: 0.65, metalness: 0.05 }));
+  beak.position.set(0, 1.32, 0.46);
+  beak.rotation.set(1.855, 0, 0);
+  group.add(beak);
+  const wingL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 12), new THREE.MeshStandardMaterial({ color: 0xf6d743, roughness: 0.65, metalness: 0.05 }));
+  wingL.position.set(-0.5009, 0.85, -0.02);
+  wingL.rotation.set(0.0015, -1.0488, 2.5957);
+  wingL.scale.set(0.6, 1, 0.35);
+  group.add(wingL);
+  const wingR = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 12), new THREE.MeshStandardMaterial({ color: 0xf6d743, roughness: 0.65, metalness: 0.05 }));
+  wingR.position.set(0.4943, 0.85, -0.02);
+  wingR.rotation.set(0, 0.9291, -2.548);
+  wingR.scale.set(0.6, 1, 0.35);
+  group.add(wingR);
+  const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), new THREE.MeshStandardMaterial({ color: 0xf6d743, roughness: 0.65, metalness: 0.05 }));
+  tailTip.position.set(-0.0234, 0.4687, -0.3805);
+  tailTip.rotation.set(-0.395, 0, 0);
+  tailTip.scale.set(1.4271, 0.4141, 1.7247);
+  group.add(tailTip);
+  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.3), new THREE.MeshStandardMaterial({ color: 0xf58d1f, roughness: 0.65, metalness: 0.05 }));
+  footL.position.set(-0.2, 0.2466, -0.0101);
+  footL.rotation.set(0.1538, 0, 0);
+  group.add(footL);
+  const footR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.3), new THREE.MeshStandardMaterial({ color: 0xf58d1f, roughness: 0.65, metalness: 0.05 }));
+  footR.position.set(0.2, 0.2519, 0.1199);
+  footR.rotation.set(-0.0892, 0.0042, -0.003);
+  group.add(footR);
+  const topKnot = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), new THREE.MeshStandardMaterial({ color: 0xff50a0, roughness: 0.65, metalness: 0.05 }));
+  topKnot.position.set(-0.0018, 1.6976, -0.0885);
+  topKnot.rotation.set(-0.4677, -0.0089, -0.0261);
+  topKnot.scale.set(0.6296, 0.9351, 1.1887);
+  group.add(topKnot);
+  const cheekL = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), new THREE.MeshStandardMaterial({ color: 0x73450c, roughness: 0.65, metalness: 0.05 }));
+  cheekL.position.set(-0.1751, 1.5292, 0.3926);
+  cheekL.rotation.set(-0.2561, -0.3673, 0.0369);
+  cheekL.scale.set(0.1732, 0.0414, 0.0454);
+  group.add(cheekL);
+  const cheekR = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), new THREE.MeshStandardMaterial({ color: 0x73450c, roughness: 0.65, metalness: 0.05 }));
+  cheekR.position.set(0.1637, 1.5292, 0.4063);
+  cheekR.rotation.set(-0.2357, 0.3022, -0.1098);
+  cheekR.scale.set(0.1732, 0.039, 0.0454);
+  group.add(cheekR);
+  return group;
+}
+
+function makePanda(parts = {}) {
+  const model = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color: 0xfaf7f2, roughness: 0.85, metalness: 0 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x33333a, roughness: 0.65, metalness: 0 });
+  const pink  = new THREE.MeshStandardMaterial({ color: 0xff9fb6, roughness: 0.9, transparent: true, opacity: 0.9 });
+  const dark  = new THREE.MeshStandardMaterial({ color: 0x1c1c22, roughness: 0.5 });
+  const white2= new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.56, 32, 24), white);
+  body.scale.set(1.06, 1.0, 0.98);
+  body.position.y = 0.62;
+  model.add(body);
+  parts.body = body;
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), white);
+  tail.position.set(0, 0.5, -0.55);
+  model.add(tail);
+  function leg(sx) {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.24, 0.3, 0.04);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.16, 6, 12), black);
+    m.position.y = -0.16;
+    pivot.add(m);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 12), black);
+    foot.scale.set(1.1, 0.7, 1.25);
+    foot.position.set(0, -0.3, 0.06);
+    pivot.add(foot);
+    model.add(pivot);
+    return pivot;
+  }
+  parts.legL = leg(-1);
+  parts.legR = leg(1);
+  function arm(sx) {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.5, 0.82, 0.06);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.2, 6, 12), black);
+    m.position.y = -0.17;
+    pivot.add(m);
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), black);
+    paw.position.y = -0.34;
+    pivot.add(paw);
+    model.add(pivot);
+    return pivot;
+  }
+  parts.armL = arm(-1);
+  parts.armR = arm(1);
+  const head = new THREE.Group();
+  head.position.set(0, 1.3, 0.06);
+  model.add(head);
+  parts.head = head;
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 24), white);
+  head.add(skull);
+  function ear(sx) {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.3, 0.3, -0.02);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 16), black);
+    m.scale.set(1, 1.05, 0.62);
+    m.position.y = 0.06;
+    pivot.add(m);
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 12), new THREE.MeshStandardMaterial({ color: 0x5a5a63, roughness: 0.8 }));
+    inner.scale.set(1, 1, 0.4);
+    inner.position.set(0, 0.06, 0.06);
+    pivot.add(inner);
+    head.add(pivot);
+    return pivot;
+  }
+  parts.earL = ear(-1);
+  parts.earR = ear(1);
+  function patch(sx) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 16), black);
+    m.scale.set(0.8, 1.2, 0.42);
+    m.position.set(sx * 0.17, 0.03, 0.36);
+    m.rotation.z = sx * 0.5;
+    m.rotation.x = -0.15;
+    head.add(m);
+  }
+  patch(-1); patch(1);
+  function eye(sx) {
+    const grp = new THREE.Group();
+    grp.position.set(sx * 0.17, 0.05, 0.395);
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 14), white2);
+    w.scale.set(1, 1, 0.5);
+    grp.add(w);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.047, 14, 12), dark);
+    pu.scale.set(1, 1, 0.55);
+    pu.position.z = 0.022;
+    grp.add(pu);
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    s.position.set(sx * 0.016 + 0.012, 0.016, 0.045);
+    grp.add(s);
+    head.add(grp);
+    return grp;
+  }
+  parts.eyeL = eye(-1);
+  parts.eyeR = eye(1);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 12), dark);
+  nose.scale.set(1.5, 1.0, 0.9);
+  nose.position.set(0, -0.06, 0.44);
+  head.add(nose);
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 12), new THREE.MeshStandardMaterial({ color: 0x7a3a45, roughness: 0.6 }));
+  mouth.scale.set(1.3, 0.5, 0.6);
+  mouth.position.set(0, -0.17, 0.42);
+  head.add(mouth);
+  parts.mouth = mouth;
+  function cheek(sx) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 12), pink.clone());
+    m.scale.set(1, 0.72, 0.35);
+    m.position.set(sx * 0.3, -0.08, 0.33);
+    head.add(m);
+    return m;
+  }
+  parts.cheekL = cheek(-1);
+  parts.cheekR = cheek(1);
+  return model;
+}
+
+function buildDog(scene) {
+  const dog = new THREE.Group();
+  const rig = new THREE.Group();
+  dog.add(rig);
+  const dogBody = new THREE.MeshStandardMaterial({ color:0xf7f2e6, metalness:0.35, roughness:0.45 });
+  const dogAcc  = new THREE.MeshStandardMaterial({ color:0x62b0e8, metalness:0.5, roughness:0.35 });
+  const dogDark = new THREE.MeshStandardMaterial({ color:0x2e3338, metalness:0.5, roughness:0.5 });
+  const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.85,0.58,1.45), dogBody);
+  bodyMesh.position.y = 0.56; rig.add(bodyMesh);
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0,0.88,0.8); rig.add(headGroup);
+  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.66,0.58,0.62), dogBody);
+  headGroup.add(headMesh);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.27,0.36), new THREE.MeshStandardMaterial({ color:0xffe0b0, roughness:0.6 }));
+  snout.position.set(0,-0.14,0.42); headGroup.add(snout);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.32), new THREE.MeshStandardMaterial({ color:0xf0c898, roughness:0.6 }));
+  jaw.position.set(0,-0.26,0.42); headGroup.add(jaw);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.065,8,8), dogDark);
+  nose.position.set(0,-0.08,0.61); headGroup.add(nose);
+  const eyes = [];
+  [-0.19,0.19].forEach(x=>{
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.07,10,10), dogDark);
+    e.position.set(x,0.06,0.3); headGroup.add(e); eyes.push(e);
+  });
+  const ears = [];
+  [-0.24,0.24].forEach((x,i)=>{
+    const pivot = new THREE.Group();
+    pivot.position.set(x,0.28,-0.02);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14,0.36,8), dogAcc);
+    ear.position.y = 0.18;
+    pivot.add(ear);
+    headGroup.add(pivot);
+    ears.push({ pivot, side:(i===0?-1:1) });
+  });
+  const legs = [];
+  [[-0.32,-0.5],[0.32,-0.5],[-0.32,0.5],[0.32,0.5]].forEach(([x,z])=>{
+    const lg = new THREE.Group();
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.48,0.2), dogDark);
+    leg.position.y = -0.24;
+    lg.add(leg);
+    lg.position.set(x,0.5,z);
+    rig.add(lg); legs.push(lg);
+  });
+  const tailPivot = new THREE.Group();
+  const tailMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.045,0.55,8), dogBody);
+  tailMesh.position.y = 0.28; tailPivot.add(tailMesh);
+  const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.085,8,8), dogAcc);
+  tailTip.position.y = 0.56; tailPivot.add(tailTip);
+  tailPivot.position.set(0,0.72,-0.72);
+  tailPivot.rotation.x = -0.55;
+  rig.add(tailPivot);
+  scene.add(dog);
+  return { dog, rig, headGroup, ears, legs, tailPivot, eyes };
+}
+
+function buildCat(scene) {
+  const cat = new THREE.Group();
+  const catRig = new THREE.Group();
+  cat.add(catRig);
+  const catFur   = new THREE.MeshStandardMaterial({ color:0x8c8f98, roughness:0.85 });
+  const catBelly = new THREE.MeshStandardMaterial({ color:0xe6e2da, roughness:0.9 });
+  const catDark  = new THREE.MeshStandardMaterial({ color:0x35322f, roughness:0.7 });
+  const catBody = new THREE.Mesh(new THREE.SphereGeometry(0.46,16,14), catFur);
+  catBody.scale.set(1.0,0.86,1.18);
+  catBody.position.y = 0.44; catRig.add(catBody);
+  const catBellyM = new THREE.Mesh(new THREE.SphereGeometry(0.33,12,10), catBelly);
+  catBellyM.scale.set(1.0,0.7,1.1);
+  catBellyM.position.set(0,0.30,0.10); catRig.add(catBellyM);
+  const catHead = new THREE.Group();
+  catHead.position.set(0,0.78,0.34); catRig.add(catHead);
+  const catHeadM = new THREE.Mesh(new THREE.SphereGeometry(0.30,16,14), catFur);
+  catHeadM.scale.set(1.05,0.95,0.95); catHead.add(catHeadM);
+  const catMuzzle = new THREE.Mesh(new THREE.SphereGeometry(0.15,12,10), catBelly);
+  catMuzzle.scale.set(1.1,0.72,0.8); catMuzzle.position.set(0,-0.09,0.22); catHead.add(catMuzzle);
+  const catNose = new THREE.Mesh(new THREE.ConeGeometry(0.045,0.05,6), new THREE.MeshStandardMaterial({ color:0xe89aa8 }));
+  catNose.rotation.x = Math.PI/2; catNose.position.set(0,-0.05,0.33); catHead.add(catNose);
+  const catEars = [];
+  [-0.16,0.16].forEach((x,i)=>{
+    const pv = new THREE.Group(); pv.position.set(x,0.22,0.02);
+    const e = new THREE.Mesh(new THREE.ConeGeometry(0.11,0.20,4), catFur);
+    e.position.y = 0.10; pv.add(e);
+    catHead.add(pv); catEars.push({ pivot:pv, side:(i===0?-1:1) });
+  });
+  const catEyes = [];
+  [-0.13,0.13].forEach(x=>{
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.055,10,10), new THREE.MeshStandardMaterial({ color:0x9fd86a, emissive:0x2a4a18 }));
+    e.position.set(x,0.03,0.245); catHead.add(e); catEyes.push(e);
+    const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.012,0.07,0.01), catDark);
+    pupil.position.set(x,0.03,0.30); catHead.add(pupil);
+  });
+  const catLegs = [];
+  [[-0.24,-0.28],[0.24,-0.28],[-0.24,0.28],[0.24,0.28]].forEach(([x,z])=>{
+    const l = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.10,0.26,8), catFur);
+    m.position.y = -0.13; l.add(m);
+    l.position.set(x,0.22,z); catRig.add(l); catLegs.push(l);
+  });
+  const catTail = new THREE.Group();
+  const catTailM = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.035,0.62,8), catFur);
+  catTailM.position.y = 0.31; catTail.add(catTailM);
+  const catTailTip = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), catBelly);
+  catTailTip.position.y = 0.62; catTail.add(catTailTip);
+  catTail.position.set(0,0.50,-0.46);
+  catTail.rotation.x = -0.9;
+  catRig.add(catTail);
+  scene.add(cat);
+  return { cat, catRig, catHead, catEars, catEyes, catLegs, catTail };
+}
+
+// 種族ごとのモデル生成・寸法情報（等身の違いを揃えるための正規化に使用）
+const CHAR_MODEL_INFO = {
+  piyo:  { build: () => createChick(),                     height:1.80, feetY:0.20 },
+  panda: { build: () => makePanda({}),                     height:1.75, feetY:0.06 },
+  inu:   { build: () => buildDog({ add: () => {} }).dog,    height:1.17, feetY:0.02 },
+  neko:  { build: () => buildCat({ add: () => {} }).cat,    height:1.08, feetY:-0.02 },
+};
+function buildCharacterModel(speciesId) {
+  const info = CHAR_MODEL_INFO[speciesId] || CHAR_MODEL_INFO.piyo;
+  return info.build();
+}
+
+/* =========================================================================
    three.js セットアップ
 ========================================================================= */
 const canvas = document.getElementById("c");
@@ -346,56 +646,18 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
   hatchRing.position.set(0, 0.68, -0.15);
   g.add(hatchRing);
 
-  // パイロット（キャラ胸像）— ガード時に沈む
-  const pilot = new THREE.Group();
-  pilot.position.set(0, 0.74, -0.15);
+  // パイロット（キャラ本体）— ハッチの上に搭乗。ガード時に沈む
+  const info = CHAR_MODEL_INFO[speciesId] || CHAR_MODEL_INFO.piyo;
+  const hatchScale = 0.62 / info.height;
+  const pilot = buildCharacterModel(speciesId);
+  pilot.scale.setScalar(hatchScale);
+  pilot.position.set(0, 0.68 - info.feetY*hatchScale, -0.15);
   g.add(pilot);
-
-  const headMat = new THREE.MeshStandardMaterial({ color: accentColor, roughness:0.7 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: hullColor, roughness:0.7 });
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 12), skinMat);
-  head.position.y = 0.22;
-  pilot.add(head);
-
-  if (speciesId === "piyo") {
-    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 8), new THREE.MeshStandardMaterial({color:0xff8c1a}));
-    beak.rotation.x = Math.PI/2; beak.position.set(0, 0.20, 0.28);
-    pilot.add(beak);
-  } else if (speciesId === "panda") {
-    [-0.2, 0.2].forEach(x => {
-      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.1,10,8), headMat);
-      ear.position.set(x, 0.46, 0); pilot.add(ear);
-    });
-    [-0.11,0.11].forEach(x=>{
-      const patch = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8), headMat);
-      patch.position.set(x,0.24,0.22); pilot.add(patch);
-    });
-  } else if (speciesId === "inu") {
-    [-0.24,0.24].forEach(x=>{
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.26,8), headMat);
-      ear.rotation.z = x<0?0.5:-0.5;
-      ear.position.set(x,0.38,0.02); pilot.add(ear);
-    });
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), new THREE.MeshStandardMaterial({color:0x2b2b2b}));
-    nose.position.set(0,0.18,0.27); pilot.add(nose);
-  } else if (speciesId === "neko") {
-    [-0.18,0.18].forEach(x=>{
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09,0.2,4), headMat);
-      ear.rotation.y = Math.PI/4;
-      ear.position.set(x,0.44,0.02); pilot.add(ear);
-    });
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshStandardMaterial({color:0xff9db0}));
-    nose.position.set(0,0.18,0.27); pilot.add(nose);
-  }
-  [-0.09,0.09].forEach(x=>{
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035,8,8), new THREE.MeshStandardMaterial({color:0x1a1a1a}));
-    eye.position.set(x,0.24,0.26); pilot.add(eye);
-  });
 
   g.scale.setScalar(scaleMul);
   g.userData.pilot = pilot;
   g.userData.pilotBaseY = pilot.position.y;
+  g.userData.pilotBaseScale = hatchScale;
   g.userData.barrelTip = new THREE.Vector3(0, 0.55, 1.7);
   return g;
 }
@@ -1170,6 +1432,72 @@ function updateHud() {
    メインループ
 ========================================================================= */
 let lastTime = performance.now();
+function updateCamera(dt) {
+  const p = world.player;
+  const behind = new THREE.Vector3(-Math.sin(p.facing), 0, -Math.cos(p.facing));
+  const camTarget = p.pos.clone().addScaledVector(behind, CAM_DIST);
+  camTarget.y = CAM_HEIGHT;
+  camera.position.lerp(camTarget, Math.min(1, CAM_LERP*dt));
+  const lookTarget = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 2.2);
+  lookTarget.y = 0.6;
+  camera.lookAt(lookTarget);
+}
+
+/* =========================================================================
+   搭乗シーン（最初のステージ開始前に、キャラが歩いてタンクに乗り込む演出）
+========================================================================= */
+function startBoardingSequence(charId) {
+  const p = world.player;
+  const info = CHAR_MODEL_INFO[charId] || CHAR_MODEL_INFO.piyo;
+  const walkScale = 1.05 / info.height;
+  const walker = buildCharacterModel(charId);
+  walker.scale.setScalar(walkScale);
+
+  const forward = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
+  const startPos = p.pos.clone().addScaledVector(forward, -3.6);
+  startPos.y = -info.feetY * walkScale;
+  const endPos = p.pos.clone().addScaledVector(forward, -0.2);
+  endPos.y = -info.feetY * walkScale;
+
+  walker.position.copy(startPos);
+  walker.rotation.y = p.facing;
+  world.root.add(walker);
+
+  p.mesh.userData.pilot.visible = false;
+  document.getElementById("joyZone").style.visibility = "hidden";
+  document.getElementById("actionZone").style.visibility = "hidden";
+  showToast("とうじょう ちゅう…", 1600);
+
+  world.boarding = { walker, t:0, duration:1.35, startPos, endPos, feetY:info.feetY, walkScale };
+  world.state = "boarding";
+  updateCamera(999); // 前の画面から持ち越した位置から一気に正しい位置へスナップ
+}
+
+function updateBoarding(dt) {
+  const b = world.boarding;
+  if (!b) { world.state = "playing"; return; }
+  b.t += dt;
+  const t = Math.min(1, b.t / b.duration);
+  const ease = t*t*(3 - 2*t);
+  b.walker.position.x = b.startPos.x + (b.endPos.x - b.startPos.x) * ease;
+  b.walker.position.z = b.startPos.z + (b.endPos.z - b.startPos.z) * ease;
+  const hop = Math.sin(Math.min(t,0.92) * Math.PI * 4.5) * 0.10 * (1 - t*0.6);
+  b.walker.position.y = b.startPos.y + Math.max(0, hop);
+  b.walker.rotation.y = world.player.facing;
+
+  updateCamera(dt);
+
+  if (t >= 1) {
+    world.root.remove(b.walker);
+    world.player.mesh.userData.pilot.visible = true;
+    world.boarding = null;
+    world.state = "playing";
+    document.getElementById("joyZone").style.visibility = "";
+    document.getElementById("actionZone").style.visibility = "";
+    showToast("ステージ " + world.stage + " スタート！", 1100);
+  }
+}
+
 function animate(now) {
   requestAnimationFrame(animate);
   let dt = (now - lastTime) / 1000;
@@ -1178,6 +1506,7 @@ function animate(now) {
   if (dt < 0) dt = 0;
 
   if (world && world.state === "playing") stepGame(dt);
+  else if (world && world.state === "boarding") updateBoarding(dt);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(animate);
@@ -1204,7 +1533,7 @@ function stepGame(dt) {
     if (steer !== 0) {
       // 止まっている時はその場旋回、走っている時はゆるやかに曲がる
       const moveFactor = 0.55 + 0.45 * Math.min(1, Math.abs(throttle));
-      const turnRate = 1.15 * p.def.turn * moveFactor * dt;
+      const turnRate = 1.38 * p.def.turn * moveFactor * dt;
       // バック中はハンドルの利きを反転（実車と同じ感覚）
       const dirSign = throttle < 0 ? -1 : 1;
       p.facing -= steer * turnRate * dirSign;
@@ -1224,19 +1553,14 @@ function stepGame(dt) {
     p.mesh.rotation.y = p.facing;
     // ガード：パイロットが沈む
     const pilot = p.mesh.userData.pilot;
-    const targetY = p.guard ? p.mesh.userData.pilotBaseY - 0.34 : p.mesh.userData.pilotBaseY;
+    const baseScale = p.mesh.userData.pilotBaseScale;
+    const targetY = p.guard ? p.mesh.userData.pilotBaseY - 0.30 : p.mesh.userData.pilotBaseY;
     pilot.position.y += (targetY - pilot.position.y) * Math.min(1, dt*10);
-    pilot.scale.setScalar(p.guard ? 0.82 : 1.0);
+    pilot.scale.setScalar(baseScale * (p.guard ? 0.82 : 1.0));
   }
 
   // ---- カメラ追従 ----
-  const behind = new THREE.Vector3(-Math.sin(p.facing), 0, -Math.cos(p.facing));
-  const camTarget = p.pos.clone().addScaledVector(behind, CAM_DIST);
-  camTarget.y = CAM_HEIGHT;
-  camera.position.lerp(camTarget, Math.min(1, CAM_LERP*dt));
-  const lookTarget = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 2.2);
-  lookTarget.y = 0.6;
-  camera.lookAt(lookTarget);
+  updateCamera(dt);
 
   // ---- 基地：攻撃 & 敵湧き ----
   world.bases.forEach(base => {
@@ -1445,7 +1769,7 @@ function startGame(charId) {
   buildWorld(currentStage, charId);
   updateBaseIcons();
   hideAllScreens();
-  showToast("ステージ 1 スタート！", 1200);
+  startBoardingSequence(charId);
 }
 function onStageClear() {
   if (world.state !== "playing") return;
@@ -1475,12 +1799,14 @@ document.getElementById("btnNext").addEventListener("click", () => {
   buildWorld(currentStage, selectedChar);
   updateBaseIcons();
   hideAllScreens();
+  updateCamera(999);
   showToast("ステージ " + currentStage + " スタート！", 1200);
 });
 document.getElementById("btnRetry").addEventListener("click", () => {
   buildWorld(currentStage, selectedChar);
   updateBaseIcons();
   hideAllScreens();
+  updateCamera(999);
   showToast("リトライ！", 900);
 });
 document.getElementById("btnWinRetry").addEventListener("click", () => {
@@ -1488,6 +1814,7 @@ document.getElementById("btnWinRetry").addEventListener("click", () => {
   buildWorld(currentStage, selectedChar);
   updateBaseIcons();
   hideAllScreens();
+  updateCamera(999);
   showToast("ステージ 1 スタート！", 1200);
 });
 
@@ -1537,6 +1864,12 @@ window.__G = {
     if (!alive.length) return null;
     return Math.hypot(alive[0].pos.x-world.player.pos.x, alive[0].pos.z-world.player.pos.z);
   },
+  skipBoarding: () => {
+    if (world && world.boarding) {
+      world.boarding.t = world.boarding.duration;
+      updateBoarding(0);
+    }
+  },
   teleportNearBase: (idx) => {
     if (!world) return null;
     const b = world.bases[idx||0];
@@ -1544,6 +1877,18 @@ window.__G = {
     world.player.pos.set(b.pos.x, 0, b.pos.z + 4);
     world.player.facing = Math.PI;
     return { x: world.player.pos.x, z: world.player.pos.z };
+  },
+  debugBoarding: () => {
+    if (!world || !world.boarding) return null;
+    const b = world.boarding;
+    return {
+      t: b.t, walkerPos: {x:b.walker.position.x, y:b.walker.position.y, z:b.walker.position.z},
+      startPos: {x:b.startPos.x, y:b.startPos.y, z:b.startPos.z},
+      endPos: {x:b.endPos.x, y:b.endPos.y, z:b.endPos.z},
+      playerPos: {x:world.player.pos.x, z:world.player.pos.z}, playerFacing: world.player.facing,
+      cameraPos: {x:camera.position.x, y:camera.position.y, z:camera.position.z},
+      childCount: b.walker.children.length,
+    };
   },
   debugEnemy: () => {
     if (!world) return null;
