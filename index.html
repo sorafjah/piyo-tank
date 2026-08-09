@@ -205,12 +205,12 @@ const CHAR_DEFS = [
 function stageConfig(stage) {
   // stage: 1,2,3
   const cfgs = {
-    1: { halfSize: 13*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:2.6, enemyFireInt:2.6, enemyRange:8*UNIT,
-         enemySpeed:2.1, respawnDelay:4.0, timeLimit:95, density:0.16 },
-    2: { halfSize: 17*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.3, enemyFireInt:2.2, enemyRange:8*UNIT,
-         enemySpeed:2.4, respawnDelay:3.5, timeLimit:115, density:0.18 },
-    3: { halfSize: 21*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:1.8, enemyFireInt:1.8, enemyRange:9*UNIT,
-         enemySpeed:2.8, respawnDelay:3.0, timeLimit:135, density:0.20 },
+    1: { halfSize:  9*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:2.6, enemyFireInt:2.4, enemyRange:8*UNIT,
+         enemySpeed:2.4, respawnDelay:3.5, timeLimit:120, density:0.16 },
+    2: { halfSize: 15*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.3, enemyFireInt:2.1, enemyRange:8*UNIT,
+         enemySpeed:2.7, respawnDelay:3.2, timeLimit:120, density:0.18 },
+    3: { halfSize: 19*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:1.8, enemyFireInt:1.8, enemyRange:9*UNIT,
+         enemySpeed:3.0, respawnDelay:2.8, timeLimit:120, density:0.20 },
   };
   return cfgs[stage];
 }
@@ -589,6 +589,7 @@ function buildWorld(stage, charId) {
     enemies: [],
     projectiles: [],
     laserBolts: [],
+    effects: [],
     blockerMeshList, allBlockers,
     stage,
     elapsed: 0,
@@ -609,8 +610,8 @@ function spawnEnemyFrom(base) {
   root_add(mesh);
   const enemy = {
     mesh, pos: base.pos.clone(), facing: 0, hp: ENEMY_HIT_TO_KILL,
-    fireTimer: 1.8 + Math.random()*0.8, alive:true, spawnBase: base.index,
-    standoff: world.cfg.enemyRange * (0.62 + Math.random()*0.14),
+    fireTimer: 1.0 + Math.random()*0.5, alive:true, spawnBase: base.index,
+    standoff: world.cfg.enemyRange * (0.42 + Math.random()*0.14),
     aware: false,
   };
   world.enemies.push(enemy);
@@ -711,6 +712,9 @@ function fireLaserHitscan(originPos, dirRad, ownerIsPlayer) {
     applyDamage(hitObj, ownerIsPlayer, 1, "laser");
   } else if (hitKind === "base") {
     applyBaseDamage(hitObj);
+  } else if (hitKind === "wall") {
+    const hp = origin.clone().addScaledVector(dir, nearestDist);
+    spawnExplosion(hp, 0.5, [0x9fe8ff, 0xeaf9ff, 0xffffff]);
   }
   return nearestDist;
 }
@@ -733,6 +737,78 @@ function spawnLaserBolt(origin, dir, stopDist) {
   });
 }
 
+/* ---------------- 命中エフェクト（ドカーン） ---------------- */
+function spawnExplosion(pos, scale = 1, palette = [0xffe066, 0xff8c1a, 0xff5d5d, 0xffffff]) {
+  const fx = { parts: [], life: 0, maxLife: 0.55 * (0.8 + scale*0.3) };
+
+  // 中心のフラッシュ球
+  const flashMat = new THREE.MeshBasicMaterial({ color:0xfff6d0, transparent:true, opacity:0.95 });
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(0.35*scale, 12, 10), flashMat);
+  flash.position.set(pos.x, 0.7, pos.z);
+  world.root.add(flash);
+  fx.parts.push({ mesh:flash, mat:flashMat, kind:"flash", baseScale:1 });
+
+  // 広がるリング
+  const ringMat = new THREE.MeshBasicMaterial({ color:0xffd166, transparent:true, opacity:0.8, side:THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.25*scale, 0.42*scale, 20), ringMat);
+  ring.rotation.x = -Math.PI/2;
+  ring.position.set(pos.x, 0.12, pos.z);
+  world.root.add(ring);
+  fx.parts.push({ mesh:ring, mat:ringMat, kind:"ring", baseScale:1 });
+
+  // 飛び散る破片
+  const count = Math.round(10 * scale);
+  for (let i=0;i<count;i++) {
+    const c = palette[Math.floor(Math.random()*palette.length)];
+    const mat = new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:1 });
+    const size = (0.10 + Math.random()*0.14) * scale;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size,size,size), mat);
+    mesh.position.set(pos.x, 0.6, pos.z);
+    const ang = Math.random()*Math.PI*2;
+    const spd = (2.6 + Math.random()*3.4) * scale;
+    world.root.add(mesh);
+    fx.parts.push({
+      mesh, mat, kind:"debris",
+      vel: new THREE.Vector3(Math.cos(ang)*spd, 2.2+Math.random()*3.2, Math.sin(ang)*spd),
+      spin: new THREE.Vector3((Math.random()-0.5)*12,(Math.random()-0.5)*12,(Math.random()-0.5)*12),
+    });
+  }
+  world.effects.push(fx);
+}
+
+function updateEffects(dt) {
+  for (let i = world.effects.length-1; i >= 0; i--) {
+    const fx = world.effects[i];
+    fx.life += dt;
+    const t = Math.min(1, fx.life / fx.maxLife);
+    fx.parts.forEach(pt => {
+      if (pt.kind === "debris") {
+        pt.vel.y -= 14 * dt;
+        pt.mesh.position.x += pt.vel.x * dt;
+        pt.mesh.position.y += pt.vel.y * dt;
+        pt.mesh.position.z += pt.vel.z * dt;
+        if (pt.mesh.position.y < 0.08) { pt.mesh.position.y = 0.08; pt.vel.y *= -0.35; pt.vel.x *= 0.7; pt.vel.z *= 0.7; }
+        pt.mesh.rotation.x += pt.spin.x * dt;
+        pt.mesh.rotation.y += pt.spin.y * dt;
+        pt.mesh.rotation.z += pt.spin.z * dt;
+        pt.mat.opacity = 1 - t;
+      } else if (pt.kind === "flash") {
+        const s = 1 + t*2.2;
+        pt.mesh.scale.setScalar(s);
+        pt.mat.opacity = Math.max(0, 0.95 * (1 - t*1.8));
+      } else if (pt.kind === "ring") {
+        const s = 1 + t*4.5;
+        pt.mesh.scale.setScalar(s);
+        pt.mat.opacity = Math.max(0, 0.8 * (1 - t));
+      }
+    });
+    if (fx.life >= fx.maxLife) {
+      fx.parts.forEach(pt => world.root.remove(pt.mesh));
+      world.effects.splice(i,1);
+    }
+  }
+}
+
 function applyDamage(entity, byPlayer, hits, sourceType) {
   if (!entity.alive) return;
   if (entity === world.player) {
@@ -751,6 +827,10 @@ function applyDamage(entity, byPlayer, hits, sourceType) {
       entity.alive = false;
       world.root.remove(entity.mesh);
       AudioSys.enemyDown();
+      spawnExplosion(entity.pos, 2.0, [0xff6b5b, 0xffb703, 0xffe066, 0xffffff]);
+      showToast("げきは！", 700);
+    } else {
+      spawnExplosion(entity.pos, 0.85);
     }
   }
 }
@@ -763,7 +843,12 @@ function applyBaseDamage(base) {
     base.alive = false;
     world.root.remove(base.mesh);
     AudioSys.baseDown();
+    spawnExplosion(base.pos, 3.4, [0xff5d5d, 0xffb703, 0xffe066, 0xffffff]);
+    showToast("きち はかい！！", 1100);
     updateBaseIcons();
+  } else {
+    spawnExplosion(base.pos, 1.2);
+    showToast("あと " + base.hp + " ぱつ", 600);
   }
 }
 
@@ -776,6 +861,7 @@ function applyProjectileDamageToPlayer(dmg) {
   p.hp = Math.max(0, p.hp - d);
   p.invuln = PLAYER_INVULN;
   AudioSys.playerHit();
+  spawnExplosion(p.pos, p.guard ? 0.7 : 1.3, p.guard ? [0x7fd0ff,0xffffff] : [0xff5d5d,0xffb703,0xffffff]);
   flashHitToast();
 }
 
@@ -917,40 +1003,30 @@ function stepGame(dt) {
 
   // ---- 自機移動 ----
   if (p.alive) {
-    const mag = Math.min(1, Math.hypot(joyVec.x, joyVec.y));
-    if (mag > 0.08) {
-      // スティックは「今カメラに映っている向き」基準（画面の左に倒したら画面の左へ進む）
-      const fwd = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
-      const right = new THREE.Vector3(Math.cos(p.facing), 0, -Math.sin(p.facing));
-      const desiredDir = new THREE.Vector3()
-        .addScaledVector(right, joyVec.x)
-        .addScaledVector(fwd, joyVec.y);
-      const desired = Math.atan2(desiredDir.x, desiredDir.z);
-      let diff = desired - p.facing;
-      while (diff > Math.PI) diff -= Math.PI*2;
-      while (diff < -Math.PI) diff += Math.PI*2;
+    // 戦車式操作：左右＝ハンドル（左に倒すと左へ曲がる）、上下＝前進／バック
+    const DEAD = 0.16;
+    let steer = Math.abs(joyVec.x) < DEAD ? 0 : (joyVec.x - Math.sign(joyVec.x)*DEAD) / (1-DEAD);
+    let throttle = Math.abs(joyVec.y) < DEAD ? 0 : (joyVec.y - Math.sign(joyVec.y)*DEAD) / (1-DEAD);
+    steer = THREE.MathUtils.clamp(steer, -1, 1);
+    throttle = THREE.MathUtils.clamp(throttle, -1, 1);
 
-      // 真後ろ寄りの入力ならスピンせず「バック」する
-      let reverse = false, targetFacing = desired;
-      if (Math.abs(diff) > Math.PI/2) {
-        reverse = true;
-        targetFacing = desired + Math.PI;
-        while (targetFacing > Math.PI) targetFacing -= Math.PI*2;
-        while (targetFacing < -Math.PI) targetFacing += Math.PI*2;
-      }
-      let diff2 = targetFacing - p.facing;
-      while (diff2 > Math.PI) diff2 -= Math.PI*2;
-      while (diff2 < -Math.PI) diff2 += Math.PI*2;
-      const turnRate = 1.1 * p.def.turn * dt;
-      if (Math.abs(diff2) < turnRate) p.facing = targetFacing;
-      else p.facing += Math.sign(diff2) * turnRate;
+    if (steer !== 0) {
+      // 止まっている時はその場旋回、走っている時はゆるやかに曲がる
+      const moveFactor = 0.55 + 0.45 * Math.min(1, Math.abs(throttle));
+      const turnRate = 1.15 * p.def.turn * moveFactor * dt;
+      // バック中はハンドルの利きを反転（実車と同じ感覚）
+      const dirSign = throttle < 0 ? -1 : 1;
+      p.facing -= steer * turnRate * dirSign;
+      while (p.facing > Math.PI) p.facing -= Math.PI*2;
+      while (p.facing < -Math.PI) p.facing += Math.PI*2;
+    }
 
+    if (throttle !== 0) {
       const speedMul = p.guard ? GUARD_SPEED_MULT : 1;
-      const baseSpeed = 5.2 * p.def.speed * speedMul * mag;
-      const speed = reverse ? -baseSpeed * 0.62 : baseSpeed;
-      const nx = p.pos.x + Math.sin(p.facing) * speed * dt;
-      const nz = p.pos.z + Math.cos(p.facing) * speed * dt;
-      p.pos.x = nx; p.pos.z = nz;
+      const fwdSpeed = 5.2 * p.def.speed * speedMul;
+      const speed = throttle > 0 ? fwdSpeed * throttle : fwdSpeed * throttle * 0.6;
+      p.pos.x += Math.sin(p.facing) * speed * dt;
+      p.pos.z += Math.cos(p.facing) * speed * dt;
       resolveBlockerPush(p.pos, 0.62);
     }
     p.mesh.position.set(p.pos.x, 0, p.pos.z);
@@ -1008,7 +1084,7 @@ function stepGame(dt) {
   world.enemies = world.enemies.filter(e => e.alive || performance.now() - (e.deadAt||0) < 1);
 
   // ---- 敵タンクAI ----
-  const detectRange = cfg.enemyRange * 1.55;
+  const detectRange = cfg.enemyRange * 2.4;
   world.enemies.forEach(e => {
     if (!e.alive) return;
     const toP = new THREE.Vector3(p.pos.x - e.pos.x, 0, p.pos.z - e.pos.z);
@@ -1076,6 +1152,7 @@ function stepGame(dt) {
       continue;
     }
     if (hitWall || pr.traveled > pr.maxDist) {
+      if (hitWall) spawnExplosion(new THREE.Vector3(nx,0,nz), 0.6, [0xffb703,0xffe066,0xffffff]);
       world.root.remove(pr.mesh);
       world.projectiles.splice(i,1);
     }
@@ -1101,6 +1178,7 @@ function stepGame(dt) {
     }
   }
 
+  updateEffects(dt);
   updateHud();
 
   // ---- 勝敗判定 ----
@@ -1208,6 +1286,9 @@ window.__G = {
   fireLaser: () => tryFire(),
   destroyAllBases: () => { if (world) world.bases.forEach(b => { if (b.alive) { b.alive=false; b.hp=0; world.root.remove(b.mesh); } }); },
   setJoy: (x,y) => { joyVec.x = x; joyVec.y = y; },
+  getFacing: () => world ? world.player.facing : null,
+  testExplosion: (x,z,s) => { if (world) spawnExplosion(new THREE.Vector3(x,0,z), s||1.5); },
+  getPos: () => world ? { x: world.player.pos.x, z: world.player.pos.z } : null,
   getEnemyBases: () => world ? world.enemies.filter(e=>e.alive).map(e=>e.spawnBase) : [],
   killAllEnemies: () => { if (world) world.enemies.forEach(e => { if (e.alive) { e.alive=false; world.root.remove(e.mesh); } }); },
   forceRespawn: () => { if (world) world.respawnTimer = 0; },
