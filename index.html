@@ -74,12 +74,6 @@
   }
   .base-icon.dead { background:#555; opacity:.35; }
 
-  #cooldownWrap {
-    position:fixed; bottom:max(150px, calc(env(safe-area-inset-bottom) + 140px)); left:50%; transform:translateX(-50%);
-    width:120px; height:8px; border-radius:4px; background:rgba(0,0,0,.35); overflow:hidden;
-  }
-  #cooldownFill { height:100%; width:0%; background:#ffe066; }
-
   #toast {
     position:fixed; top:26%; left:50%; transform:translate(-50%,-8px); pointer-events:none;
     background:rgba(0,0,0,.55); border:3px solid #ffe066; border-radius:20px; padding:8px 22px;
@@ -96,7 +90,7 @@
     background:rgba(255,255,255,.12); border:3px solid rgba(255,255,255,.35);
   }
   #joyKnob {
-    position:absolute; left:39px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 39px); width:48px; height:48px; border-radius:50%;
+    position:absolute; left:63px; bottom:calc(max(24px, env(safe-area-inset-bottom)) + 39px); width:48px; height:48px; border-radius:50%;
     background:rgba(255,224,102,.85); border:3px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.35);
   }
   #actionZone {
@@ -164,7 +158,6 @@
       <div class="base-icon" id="baseIcon1">基</div>
       <div class="base-icon" id="baseIcon2">基</div>
     </div>
-    <div id="cooldownWrap"><div id="cooldownFill"></div></div>
     <div id="toast"></div>
   </div>
 
@@ -189,9 +182,9 @@ import * as THREE from "three";
    ぴよタンク — 定数・設定
 ========================================================================= */
 const UNIT = 2;                 // 1タンク = 2 world units
-const LASER_RANGE = UNIT * 2;   // レーザー射程 2タンク
-const LASER_BOLT_LEN = UNIT * 1.3;   // 飛んでいくビーム自体の長さ
-const LASER_FLIGHT_SPEED = UNIT * 8; // 2タンク分を飛びきるのにかかる速さ
+const LASER_RANGE = UNIT * 16;       // レーザーが届く距離（遠くまで飛ぶ）
+const LASER_BOLT_LEN = UNIT * 2;     // 飛んでいくビーム自体の長さ＝2タンク
+const LASER_FLIGHT_SPEED = UNIT * 22;// ビームの飛翔速度
 const LASER_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;
 const BASE_HIT_TO_KILL = 6;
@@ -601,6 +594,7 @@ function buildWorld(stage, charId) {
     elapsed: 0,
     timeLeft: cfg.timeLimit,
     respawnTimer: 1.5,
+    lastSpawnBase: -1,
     state: "playing", // playing / clearing / over
   };
 }
@@ -831,7 +825,7 @@ function joyBaseCenter() {
   return { x: r.left + r.width/2, y: r.top + r.height/2 };
 }
 function setJoyKnob(dx, dy) {
-  joyKnob.style.left = (39 + dx) + "px";
+  joyKnob.style.left = (63 + dx) + "px";
   joyKnob.style.bottom = "calc(max(24px, env(safe-area-inset-bottom)) + " + (39 - dy) + "px)";
 }
 joyZone.addEventListener("pointerdown", e => {
@@ -893,8 +887,6 @@ function updateHud() {
   document.getElementById("hpBarFill").style.width = Math.max(0, p.hp/PLAYER_HP_MAX*100) + "%";
   document.getElementById("timerText").textContent = Math.ceil(world.timeLeft);
   document.getElementById("stageText").textContent = "ステージ " + world.stage;
-  const cdRatio = 1 - Math.min(1, p.laserCooldown / LASER_COOLDOWN);
-  document.getElementById("cooldownFill").style.width = (cdRatio*100) + "%";
 }
 
 /* =========================================================================
@@ -949,7 +941,7 @@ function stepGame(dt) {
       let diff2 = targetFacing - p.facing;
       while (diff2 > Math.PI) diff2 -= Math.PI*2;
       while (diff2 < -Math.PI) diff2 += Math.PI*2;
-      const turnRate = 3.0 * p.def.turn * dt;
+      const turnRate = 1.1 * p.def.turn * dt;
       if (Math.abs(diff2) < turnRate) p.facing = targetFacing;
       else p.facing += Math.sign(diff2) * turnRate;
 
@@ -1001,7 +993,14 @@ function stepGame(dt) {
   if (aliveEnemies.length < 2 && world.respawnTimer <= 0) {
     const aliveBases = world.bases.filter(b => b.alive);
     if (aliveBases.length > 0) {
-      const base = aliveBases[Math.floor(Math.random()*aliveBases.length)];
+      // すでに敵が出ている基地・直前に使った基地をできるだけ避けて、別の隅から出す
+      const usedNow = new Set(aliveEnemies.map(e => e.spawnBase));
+      let pool = aliveBases.filter(b => !usedNow.has(b.index) && b.index !== world.lastSpawnBase);
+      if (pool.length === 0) pool = aliveBases.filter(b => !usedNow.has(b.index));
+      if (pool.length === 0) pool = aliveBases.filter(b => b.index !== world.lastSpawnBase);
+      if (pool.length === 0) pool = aliveBases;
+      const base = pool[Math.floor(Math.random()*pool.length)];
+      world.lastSpawnBase = base.index;
       spawnEnemyFrom(base);
       world.respawnTimer = cfg.respawnDelay;
     }
@@ -1209,6 +1208,9 @@ window.__G = {
   fireLaser: () => tryFire(),
   destroyAllBases: () => { if (world) world.bases.forEach(b => { if (b.alive) { b.alive=false; b.hp=0; world.root.remove(b.mesh); } }); },
   setJoy: (x,y) => { joyVec.x = x; joyVec.y = y; },
+  getEnemyBases: () => world ? world.enemies.filter(e=>e.alive).map(e=>e.spawnBase) : [],
+  killAllEnemies: () => { if (world) world.enemies.forEach(e => { if (e.alive) { e.alive=false; world.root.remove(e.mesh); } }); },
+  forceRespawn: () => { if (world) world.respawnTimer = 0; },
   setTimeLeft: (t) => { if (world) world.timeLeft = t; },
   setGuard: (v) => { guardPressed = !!v; },
 };
