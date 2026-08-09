@@ -18,26 +18,26 @@
 
   /* ---------- 共通オーバーレイ ---------- */
   .screen {
-    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
     background:radial-gradient(circle at 50% 30%, #2f5c33 0%, #16241a 75%);
-    color:#fff; text-align:center; padding:20px; z-index:50;
+    color:#fff; text-align:center; padding:16px; z-index:50; overflow-y:auto;
   }
   .hidden { display:none !important; }
   .title-main {
-    font-size:clamp(34px, 8vw, 64px); font-weight:700; color:#ffe066;
-    text-shadow:0 4px 0 #b5860a, 0 6px 14px rgba(0,0,0,.5); letter-spacing:.04em; margin-bottom:6px;
+    font-size:clamp(28px, 7vw, 56px); font-weight:700; color:#ffe066;
+    text-shadow:0 4px 0 #b5860a, 0 6px 14px rgba(0,0,0,.5); letter-spacing:.04em; margin:6px 0 4px;
   }
-  .title-sub { font-size:clamp(13px,3vw,17px); color:#cfe8c9; margin-bottom:28px; }
+  .title-sub { font-size:clamp(12px,3vw,16px); color:#cfe8c9; margin-bottom:16px; }
 
-  .char-grid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-bottom:26px; }
+  .char-grid { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:18px; max-width:640px; }
   .char-card {
-    width:132px; padding:12px 10px 16px; border-radius:20px; background:rgba(255,255,255,.08);
+    width:126px; padding:10px 8px 12px; border-radius:20px; background:rgba(255,255,255,.08);
     border:3px solid rgba(255,255,255,.25); cursor:pointer; transition:transform .15s, border-color .15s, background .15s;
     display:flex; flex-direction:column; align-items:center; min-height:44px;
   }
   .char-card:active, .char-card.selected { transform:scale(.96); border-color:#ffe066; background:rgba(255,224,102,.18); }
-  .char-swatch { width:64px; height:64px; border-radius:50%; margin-bottom:8px; box-shadow:inset 0 -6px 10px rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.3); }
-  .char-name { font-size:16px; font-weight:700; margin-bottom:6px; }
+  .char-swatch { width:72px; height:72px; margin-bottom:4px; }
+  .char-name { font-size:15px; font-weight:700; margin-bottom:4px; }
   .stat-row { width:100%; font-size:10px; display:flex; align-items:center; gap:4px; margin-top:2px; color:#dfe; }
   .stat-bar { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden; }
   .stat-fill { height:100%; border-radius:3px; }
@@ -119,7 +119,7 @@
     <div class="title-main">ぴよタンク</div>
     <div class="title-sub">2つの敵基地を はかいせよ！</div>
     <div class="char-grid" id="charGrid"></div>
-    <button class="big-btn" id="btnStart">たたかいスタート</button>
+    <button class="big-btn" id="btnStart">スタート</button>
   </div>
 
   <!-- ステージクリア -->
@@ -164,7 +164,7 @@
   </div>
   <div id="actionZone">
     <div class="act-btn" id="btnGuard">ガード</div>
-    <div class="act-btn" id="btnFire">レーザー</div>
+    <div class="act-btn" id="btnFire">ばくだん</div>
   </div>
 </div>
 
@@ -178,12 +178,12 @@ import * as THREE from "three";
    ぴよタンク — 定数・設定
 ========================================================================= */
 const UNIT = 2;                 // 1タンク = 2 world units
-const LASER_RANGE = UNIT * 16;       // レーザーが届く距離（遠くまで飛ぶ）
-const LASER_BOLT_LEN = UNIT * 2;     // 飛んでいくビーム自体の長さ＝2タンク
-const LASER_FLIGHT_SPEED = UNIT * 22;// ビームの飛翔速度
-const LASER_COOLDOWN = 0.85;
-const ENEMY_HIT_TO_KILL = 2;
-const BASE_HIT_TO_KILL = 4;
+const BOMB_MAX_RANGE = UNIT * 5.5;   // 爆弾の最大射程（これ以上飛ぶと自然に爆発）
+const BOMB_SPEED = UNIT * 5.2;       // 爆弾の飛行速度（前方へ直進）
+const BOMB_AOE_RADIUS = 2.0;         // 着弾後のダメージ範囲
+const BOMB_COOLDOWN = 2.0;
+const ENEMY_HIT_TO_KILL = 1;         // 爆弾1発で撃破
+const BASE_HIT_TO_KILL = 3;
 const MAX_ENEMIES = 2;
 const PLAYER_HP_MAX = 100;
 const PLAYER_INVULN = 0.5;
@@ -603,7 +603,7 @@ CHAR_DEFS.forEach(cd => {
   card.className = "char-card" + (cd.id === selectedChar ? " selected" : "");
   card.dataset.id = cd.id;
   card.innerHTML = `
-    <div class="char-swatch" style="background:#${cd.hull.toString(16).padStart(6,"0")}"></div>
+    <canvas class="char-swatch" width="128" height="128"></canvas>
     <div class="char-name">${cd.name}</div>
     <div class="stat-row"><span>速</span><div class="stat-bar"><div class="stat-fill" style="width:${cd.speed*60}%;background:#ffcf3d"></div></div></div>
     <div class="stat-row"><span>硬</span><div class="stat-bar"><div class="stat-fill" style="width:${(2-cd.armor)*60}%;background:#7be26c"></div></div></div>
@@ -616,12 +616,40 @@ CHAR_DEFS.forEach(cd => {
     card.classList.add("selected");
   });
   charGrid.appendChild(card);
+  renderCharPreview(card.querySelector("canvas"), cd.id, cd.hull);
 });
+
+// キャラ選択カード用のミニ3Dプレビューを1体ずつ描画
+function renderCharPreview(canvas, speciesId, bgTint) {
+  try {
+    const previewRenderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+    previewRenderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    previewRenderer.setSize(128, 128, false);
+    const pScene = new THREE.Scene();
+    const pCam = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
+    const info = CHAR_MODEL_INFO[speciesId] || CHAR_MODEL_INFO.piyo;
+    const model = buildCharacterModel(speciesId);
+    const s = 1.5 / info.height;
+    model.scale.setScalar(s);
+    model.position.y = -info.height*s*0.5 + 0.05;
+    model.rotation.y = -0.55;
+    pScene.add(model);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x998866, 1.15);
+    pScene.add(hemi);
+    const dl = new THREE.DirectionalLight(0xffffff, 0.9);
+    dl.position.set(2, 3, 2.5);
+    pScene.add(dl);
+    pCam.position.set(0, 0.15, 2.5);
+    pCam.lookAt(0, 0, 0);
+    previewRenderer.render(pScene, pCam);
+  } catch (e) { /* プレビュー描画に失敗しても選択自体には影響しない */ }
+}
 
 /* =========================================================================
    タンク（自機／敵）ビルド
 ========================================================================= */
-function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
+const MOUNT_SCALE_MULT = { piyo:1.2, panda:1.2, inu:1.0, neko:1.0 };
+function buildTank(hullColor, accentColor, speciesId, scaleMul=1, isPlayer=true) {
   const g = new THREE.Group();
   const hullMat = new THREE.MeshStandardMaterial({ color: hullColor, roughness:0.6, metalness:0.15 });
   const treadMat = new THREE.MeshStandardMaterial({ color:0x2b2b2b, roughness:0.9 });
@@ -637,9 +665,11 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
     g.add(tread);
   });
 
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.1, 10), barrelMat);
-  barrel.rotation.x = Math.PI / 2;
-  barrel.position.set(0, 0.55, 1.15);
+  // 砲台：自機は迫撃砲のように斜め上向き（爆弾を放物線で投げる）、敵はまっすぐ
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 1.1, 10), barrelMat);
+  const elevation = isPlayer ? 0.12 : 0; // ラジアン、わずかな上向き（直進弾に合わせる）
+  barrel.rotation.x = Math.PI/2 - elevation;
+  barrel.position.set(0, 0.55 + Math.sin(elevation)*0.42, 1.0 + Math.cos(elevation)*0.35);
   g.add(barrel);
 
   const hatchRing = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 16), hullMat);
@@ -648,7 +678,8 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
 
   // パイロット（キャラ本体）— ハッチの上に搭乗。ガード時に沈む
   const info = CHAR_MODEL_INFO[speciesId] || CHAR_MODEL_INFO.piyo;
-  const hatchScale = 0.62 / info.height;
+  const mountMult = MOUNT_SCALE_MULT[speciesId] || 1.0;
+  const hatchScale = (0.62 / info.height) * mountMult;
   const pilot = buildCharacterModel(speciesId);
   pilot.scale.setScalar(hatchScale);
   pilot.position.set(0, 0.68 - info.feetY*hatchScale, -0.15);
@@ -658,7 +689,7 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
   g.userData.pilot = pilot;
   g.userData.pilotBaseY = pilot.position.y;
   g.userData.pilotBaseScale = hatchScale;
-  g.userData.barrelTip = new THREE.Vector3(0, 0.55, 1.7);
+  g.userData.barrelTip = new THREE.Vector3(0, 0.55 + Math.sin(elevation)*0.42, 1.0 + Math.cos(elevation)*0.9);
   return g;
 }
 
@@ -972,6 +1003,7 @@ function buildWorld(stage, charId) {
     enemies: [],
     projectiles: [],
     laserBolts: [],
+    bombs: [],
     effects: [],
     blockerMeshList, allBlockers,
     stage,
@@ -1047,7 +1079,9 @@ function findPathCells(fromCell, toCell) {
 ========================================================================= */
 const ENEMY_HULL = 0xff6b5b, ENEMY_ACCENT = 0xa62f2f;
 function spawnEnemyFrom(base) {
-  const mesh = buildTank(ENEMY_HULL, ENEMY_ACCENT, "inu", 1.0);
+  const pool = CHAR_DEFS.filter(c => c.id !== selectedChar);
+  const enemySpecies = (pool.length ? pool[Math.floor(Math.random()*pool.length)] : CHAR_DEFS[0]).id;
+  const mesh = buildTank(ENEMY_HULL, ENEMY_ACCENT, enemySpecies, 1.0, false);
   mesh.position.copy(base.pos);
   root_add(mesh);
   const enemy = {
@@ -1102,80 +1136,55 @@ function resolveBlockerPush(pos, radius) {
 }
 
 const raycaster = new THREE.Raycaster();
-function fireLaserHitscan(originPos, dirRad, ownerIsPlayer) {
-  const origin = originPos.clone(); origin.y = 0.55;
+
+// 自機の爆弾を投げる：正面へ直進し、壁か的に当たる・または最大射程で自然に爆発
+function throwBomb(originPos, dirRad) {
   const dir = new THREE.Vector3(Math.sin(dirRad), 0, Math.cos(dirRad));
-  raycaster.set(origin, dir);
-  raycaster.far = LASER_RANGE;
 
-  let nearestDist = LASER_RANGE;
-  let hitKind = null, hitObj = null;
+  const bombGeo = getBombGeometry();
+  const bombMat = new THREE.MeshStandardMaterial({ color:0x3a3f45, roughness:0.75, metalness:0.15, flatShading:true });
+  const mesh = new THREE.Mesh(bombGeo, bombMat);
+  const fuse = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), new THREE.MeshBasicMaterial({ color:0xff8c1a }));
+  fuse.position.set(0, 0.2, 0);
+  mesh.add(fuse);
+  mesh.position.copy(originPos); mesh.position.y = 0.55;
+  world.root.add(mesh);
 
-  // 障害物・壁
-  const hits = raycaster.intersectObjects(world.blockerMeshList, false);
-  if (hits.length && hits[0].distance < nearestDist) {
-    nearestDist = hits[0].distance; hitKind = "wall";
-  }
-
-  // ターゲット（円柱近似：originからdir方向への投影で判定）
-  function checkTargetList(list, isBase) {
-    list.forEach(t => {
-      if (!t.alive) return;
-      const tp = isBase ? t.pos : t.pos;
-      const rel = new THREE.Vector3(tp.x-origin.x, 0, tp.z-origin.z);
-      const proj = rel.dot(dir);
-      if (proj < 0 || proj > nearestDist) return;
-      const lateral = rel.clone().sub(dir.clone().multiplyScalar(proj)).length();
-      const radius = isBase ? 1.15 : 0.75;
-      if (lateral <= radius && proj < nearestDist) {
-        nearestDist = proj; hitKind = isBase ? "base" : (ownerIsPlayer ? "enemy" : "player"); hitObj = t;
-      }
-    });
-  }
-  if (ownerIsPlayer) {
-    checkTargetList(world.enemies, false);
-    checkTargetList(world.bases, true);
-  } else {
-    // 敵→自機
-    const t = world.player;
-    if (t.alive) {
-      const rel = new THREE.Vector3(t.pos.x-origin.x, 0, t.pos.z-origin.z);
-      const proj = rel.dot(dir);
-      if (proj >= 0 && proj <= nearestDist) {
-        const lateral = rel.clone().sub(dir.clone().multiplyScalar(proj)).length();
-        if (lateral <= 0.75) { nearestDist = proj; hitKind = "player"; hitObj = t; }
-      }
-    }
-  }
-
-  spawnLaserBolt(origin, dir, nearestDist);
-
-  if (hitKind === "enemy" || hitKind === "player") {
-    applyDamage(hitObj, ownerIsPlayer, 1, "laser");
-  } else if (hitKind === "base") {
-    applyBaseDamage(hitObj);
-  } else if (hitKind === "wall") {
-    const hp = origin.clone().addScaledVector(dir, nearestDist);
-    spawnExplosion(hp, 0.5, [0x9fe8ff, 0xeaf9ff, 0xffffff]);
-  }
-  return nearestDist;
+  world.bombs.push({ mesh, dir, traveled:0 });
 }
 
-function spawnLaserBolt(origin, dir, stopDist) {
-  // 青白く光る、実際に2タンク分の長さを飛んでいくビーム
-  const coreMat = new THREE.MeshBasicMaterial({ color:0xeaf9ff, transparent:true, opacity:0.95 });
-  const glowMat = new THREE.MeshBasicMaterial({ color:0x4fc3ff, transparent:true, opacity:0.45 });
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8), coreMat);
-  const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1, 8), glowMat);
-  const group = new THREE.Group();
-  group.add(glow); group.add(core);
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
-  group.quaternion.copy(q);
-  world.root.add(group);
-  world.laserBolts.push({
-    group, core, glow, coreMat, glowMat,
-    origin: origin.clone(), dir: dir.clone(),
-    stopDist: Math.max(0.15, stopDist), travel:0, fadeT:0, resolved:false,
+// 何面体のごつごつした爆弾ジオメトリ（頂点を少しランダムにずらして岩っぽくする）
+let _bombGeoCache = null;
+function getBombGeometry() {
+  if (_bombGeoCache) return _bombGeoCache;
+  const geo = new THREE.IcosahedronGeometry(0.24, 0);
+  const posAttr = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i=0;i<posAttr.count;i++) {
+    v.fromBufferAttribute(posAttr, i);
+    const jitter = 0.82 + Math.random()*0.36;
+    v.multiplyScalar(jitter);
+    posAttr.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  _bombGeoCache = geo;
+  return geo;
+}
+
+function explodeBombAt(landPos) {
+  spawnExplosion(landPos, 2.2, [0xff8c1a, 0xffd166, 0xff5d5d, 0xffffff]);
+  AudioSys.baseDown();
+  world.enemies.forEach(e => {
+    if (!e.alive) return;
+    if (Math.hypot(e.pos.x-landPos.x, e.pos.z-landPos.z) <= BOMB_AOE_RADIUS) {
+      applyDamage(e, true, 1, "bomb");
+    }
+  });
+  world.bases.forEach(b => {
+    if (!b.alive) return;
+    if (Math.hypot(b.pos.x-landPos.x, b.pos.z-landPos.z) <= BOMB_AOE_RADIUS) {
+      applyBaseDamage(b);
+    }
   });
 }
 
@@ -1253,27 +1262,17 @@ function updateEffects(dt) {
 
 function applyDamage(entity, byPlayer, hits, sourceType) {
   if (!entity.alive) return;
-  if (entity === world.player) {
-    if (world.player.invuln > 0) return;
-    let dmg = 32; // 敵レーザーは32、基地スパイクは別関数
-    if (world.player.guard) dmg *= GUARD_DAMAGE_MULT;
-    dmg *= world.player.def.armor;
-    world.player.hp = Math.max(0, world.player.hp - dmg);
-    world.player.invuln = PLAYER_INVULN;
-    AudioSys.playerHit();
-    flashHitToast();
+  if (entity === world.player) return; // 自機への直接ダメージは別経路(spawnProjectile→当たり判定)を使用
+  entity.hp -= hits;
+  AudioSys.hit();
+  if (entity.hp <= 0) {
+    entity.alive = false;
+    world.root.remove(entity.mesh);
+    AudioSys.enemyDown();
+    spawnExplosion(entity.pos, 2.0, [0xff6b5b, 0xffb703, 0xffe066, 0xffffff]);
+    showToast("げきは！", 700);
   } else {
-    entity.hp -= hits;
-    AudioSys.hit();
-    if (entity.hp <= 0) {
-      entity.alive = false;
-      world.root.remove(entity.mesh);
-      AudioSys.enemyDown();
-      spawnExplosion(entity.pos, 2.0, [0xff6b5b, 0xffb703, 0xffe066, 0xffffff]);
-      showToast("げきは！", 700);
-    } else {
-      spawnExplosion(entity.pos, 0.85);
-    }
+    spawnExplosion(entity.pos, 0.85);
   }
 }
 
@@ -1326,14 +1325,14 @@ function showToast(msg, dur=900) {
 /* =========================================================================
    投射物（基地・敵の「棘」ショット）
 ========================================================================= */
-function spawnProjectile(fromPos, toPos, speed, dmg, color) {
+function spawnProjectile(fromPos, toPos, speed, dmg, color, muzzleY) {
   const dir = new THREE.Vector3(toPos.x-fromPos.x, 0, toPos.z-fromPos.z);
   const dist = dir.length();
   dir.normalize();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness:0.4, metalness:0.4 });
+  const mat = new THREE.MeshStandardMaterial({ color, roughness:0.35, metalness:0.25, emissive:color, emissiveIntensity:0.18 });
   const mesh = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 8), mat);
-  mesh.position.set(fromPos.x, 0.7, fromPos.z);
-  mesh.lookAt(fromPos.x + dir.x, 0.7, fromPos.z + dir.z);
+  mesh.position.set(fromPos.x, muzzleY != null ? muzzleY : 0.7, fromPos.z);
+  mesh.lookAt(fromPos.x + dir.x, mesh.position.y, fromPos.z + dir.z);
   mesh.rotateX(Math.PI/2);
   world.root.add(mesh);
   world.projectiles.push({ mesh, dir, speed, dmg, traveled:0, maxDist: Math.max(dist, 22) });
@@ -1395,10 +1394,10 @@ function tryFire() {
   if (!world || world.state !== "playing") return;
   const p = world.player;
   if (!p.alive || p.laserCooldown > 0) return;
-  p.laserCooldown = LASER_COOLDOWN;
+  p.laserCooldown = BOMB_COOLDOWN;
   AudioSys.laser();
-  const origin = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 0.9);
-  fireLaserHitscan(origin, p.facing, true);
+  const origin = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 1.3);
+  throwBomb(origin, p.facing);
 }
 
 /* =========================================================================
@@ -1453,14 +1452,16 @@ function startBoardingSequence(charId) {
   const walker = buildCharacterModel(charId);
   walker.scale.setScalar(walkScale);
 
-  const forward = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
-  const startPos = p.pos.clone().addScaledVector(forward, -3.6);
+  // 横（右側）から歩いてきて乗り込む
+  const right = new THREE.Vector3(Math.cos(p.facing), 0, -Math.sin(p.facing));
+  const startPos = p.pos.clone().addScaledVector(right, 3.4);
   startPos.y = -info.feetY * walkScale;
-  const endPos = p.pos.clone().addScaledVector(forward, -0.2);
+  const endPos = p.pos.clone().addScaledVector(right, 0.15);
   endPos.y = -info.feetY * walkScale;
 
+  const moveDir = new THREE.Vector3(endPos.x-startPos.x, 0, endPos.z-startPos.z).normalize();
   walker.position.copy(startPos);
-  walker.rotation.y = p.facing;
+  walker.rotation.y = Math.atan2(moveDir.x, moveDir.z);
   world.root.add(walker);
 
   p.mesh.userData.pilot.visible = false;
@@ -1483,7 +1484,6 @@ function updateBoarding(dt) {
   b.walker.position.z = b.startPos.z + (b.endPos.z - b.startPos.z) * ease;
   const hop = Math.sin(Math.min(t,0.92) * Math.PI * 4.5) * 0.10 * (1 - t*0.6);
   b.walker.position.y = b.startPos.y + Math.max(0, hop);
-  b.walker.rotation.y = world.player.facing;
 
   updateCamera(dt);
 
@@ -1573,7 +1573,7 @@ function stepGame(dt) {
       if (base.fireTimer <= 0 && p.alive) {
         base.fireTimer = cfg.baseFireInt;
         AudioSys.baseShot();
-        spawnProjectile(base.pos, p.pos, 7.0, 12, 0x3a3a3a);
+        spawnProjectile(base.pos, p.pos, 7.0, 12, 0xffa53d, 1.5);
       }
     }
   });
@@ -1677,7 +1677,8 @@ function stepGame(dt) {
       if (e.fireTimer <= 0) {
         e.fireTimer = cfg.enemyFireInt;
         AudioSys.enemyShot();
-        spawnProjectile(e.pos, p.pos, 7.6, 10, 0xff6b5b);
+        const muzzle = e.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(e.facing),0,Math.cos(e.facing)), 1.15);
+        spawnProjectile(muzzle, p.pos, 7.6, 10, 0xff5c7a, 0.55);
       }
     }
   });
@@ -1710,25 +1711,36 @@ function stepGame(dt) {
     }
   }
 
-  // ---- レーザービーム（実際に飛んでいく演出） ----
-  for (let i = world.laserBolts.length-1; i >= 0; i--) {
-    const b = world.laserBolts[i];
-    if (!b.resolved) {
-      b.travel = Math.min(b.stopDist, b.travel + LASER_FLIGHT_SPEED*dt);
-      const front = b.travel;
-      const back = Math.max(0, front - LASER_BOLT_LEN);
-      const len = Math.max(0.03, front - back);
-      const mid = (front + back) / 2;
-      b.group.position.copy(b.origin).addScaledVector(b.dir, mid);
-      b.core.scale.y = len; b.glow.scale.y = len;
-      if (b.travel >= b.stopDist) b.resolved = true;
-    } else {
-      b.fadeT += dt;
-      const k = Math.max(0, 1 - b.fadeT/0.14);
-      b.coreMat.opacity = 0.95*k; b.glowMat.opacity = 0.45*k;
-      if (b.fadeT > 0.16) { world.root.remove(b.group); world.laserBolts.splice(i,1); }
+  // ---- 爆弾（正面へ直進し、壁・的への衝突または最大射程で爆発） ----
+  for (let i = world.bombs.length-1; i >= 0; i--) {
+    const bm = world.bombs[i];
+    const step = BOMB_SPEED * dt;
+    const nx = bm.mesh.position.x + bm.dir.x * step;
+    const nz = bm.mesh.position.z + bm.dir.z * step;
+    let exploded = circleHitsAnyBlocker(nx, nz, 0.22);
+    bm.traveled += step;
+    bm.mesh.position.x = nx; bm.mesh.position.z = nz;
+    bm.mesh.rotation.x += dt * 7; bm.mesh.rotation.z += dt * 5;
+
+    if (!exploded) {
+      for (const e of world.enemies) {
+        if (e.alive && Math.hypot(e.pos.x-nx, e.pos.z-nz) < 0.55) { exploded = true; break; }
+      }
+    }
+    if (!exploded) {
+      for (const bs of world.bases) {
+        if (bs.alive && Math.hypot(bs.pos.x-nx, bs.pos.z-nz) < 0.95) { exploded = true; break; }
+      }
+    }
+    if (!exploded && bm.traveled >= BOMB_MAX_RANGE) exploded = true;
+
+    if (exploded) {
+      world.root.remove(bm.mesh);
+      world.bombs.splice(i,1);
+      explodeBombAt(new THREE.Vector3(nx, 0, nz));
     }
   }
+
 
   updateEffects(dt);
   updateHud();
@@ -1870,13 +1882,29 @@ window.__G = {
       updateBoarding(0);
     }
   },
-  teleportNearBase: (idx) => {
+  teleportNearBase: (idx, dist) => {
     if (!world) return null;
     const b = world.bases[idx||0];
     if (!b) return null;
-    world.player.pos.set(b.pos.x, 0, b.pos.z + 4);
+    const d = dist || 12.0;
+    world.player.pos.set(b.pos.x, 0, b.pos.z + d);
     world.player.facing = Math.PI;
     return { x: world.player.pos.x, z: world.player.pos.z };
+  },
+  testEnemyShot: () => {
+    if (!world) return null;
+    const p = world.player;
+    const from = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 6);
+    spawnProjectile(from, p.pos, 3.0, 10, 0xff5c7a, 0.55);
+    return { from: {x:from.x,z:from.z} };
+  },
+  debugBombs: () => {
+    if (!world) return null;
+    return {
+      bombs: world.bombs.map(b => ({ landX:b.landX, landZ:b.landZ, t:b.t })),
+      bases: world.bases.map(b => ({ x:b.pos.x, z:b.pos.z, hp:b.hp, alive:b.alive })),
+      playerPos: { x:world.player.pos.x, z:world.player.pos.z, facing:world.player.facing },
+    };
   },
   debugBoarding: () => {
     if (!world || !world.boarding) return null;
