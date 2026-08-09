@@ -117,7 +117,7 @@
   <!-- タイトル / キャラ選択 -->
   <div id="screenTitle" class="screen">
     <div class="title-main">ぴよタンク</div>
-    <div class="title-sub">3つの敵基地をすべて はかいせよ！</div>
+    <div class="title-sub">2つの敵基地を はかいせよ！</div>
     <div class="char-grid" id="charGrid"></div>
     <button class="big-btn" id="btnStart">たたかいスタート</button>
   </div>
@@ -153,11 +153,7 @@
       <div id="timerText">60</div>
       <div id="stageText">ステージ 1</div>
     </div>
-    <div id="baseIcons">
-      <div class="base-icon" id="baseIcon0">基</div>
-      <div class="base-icon" id="baseIcon1">基</div>
-      <div class="base-icon" id="baseIcon2">基</div>
-    </div>
+    <div id="baseIcons"></div>
     <div id="toast"></div>
   </div>
 
@@ -187,7 +183,8 @@ const LASER_BOLT_LEN = UNIT * 2;     // 飛んでいくビーム自体の長さ�
 const LASER_FLIGHT_SPEED = UNIT * 22;// ビームの飛翔速度
 const LASER_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;
-const BASE_HIT_TO_KILL = 6;
+const BASE_HIT_TO_KILL = 4;
+const MAX_ENEMIES = 1;
 const PLAYER_HP_MAX = 100;
 const PLAYER_INVULN = 0.5;
 const GUARD_DAMAGE_MULT = 0.5;
@@ -205,12 +202,12 @@ const CHAR_DEFS = [
 function stageConfig(stage) {
   // stage: 1,2,3
   const cfgs = {
-    1: { halfSize:  9*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:2.6, enemyFireInt:2.4, enemyRange:8*UNIT,
-         enemySpeed:2.4, respawnDelay:3.5, timeLimit:120, density:0.16 },
-    2: { halfSize: 15*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.3, enemyFireInt:2.1, enemyRange:8*UNIT,
-         enemySpeed:2.7, respawnDelay:3.2, timeLimit:120, density:0.18 },
-    3: { halfSize: 19*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:1.8, enemyFireInt:1.8, enemyRange:9*UNIT,
-         enemySpeed:3.0, respawnDelay:2.8, timeLimit:120, density:0.20 },
+    1: { halfSize:  9*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:3.4, enemyFireInt:3.4, enemyRange:7*UNIT,
+         enemySpeed:2.2, respawnDelay:4.5, timeLimit:120, density:0.16 },
+    2: { halfSize: 14*UNIT, baseActive:true,  baseRange:9*UNIT,  baseFireInt:2.8, enemyFireInt:2.7, enemyRange:8*UNIT,
+         enemySpeed:2.6, respawnDelay:4.0, timeLimit:120, density:0.18 },
+    3: { halfSize: 18*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:2.2, enemyFireInt:2.2, enemyRange:9*UNIT,
+         enemySpeed:2.9, respawnDelay:3.5, timeLimit:120, density:0.20 },
   };
   return cfgs[stage];
 }
@@ -416,11 +413,18 @@ function generateStage(stage) {
   const rows = cols;
 
   const startCell = { x:1, z:1 };
-  const baseCells = [
+  // 3隅のうち2つを毎回ランダムに選ぶ（対角の隅は出現しやすくする）
+  const cornerCandidates = [
     { x: cols-2, z: 1 },       // 右下
     { x: 1, z: rows-2 },       // 左上
-    { x: cols-2, z: rows-2 },  // 右上
+    { x: cols-2, z: rows-2 },  // 右上（対角）
   ];
+  const shuffled = cornerCandidates.slice();
+  for (let i = shuffled.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const baseCells = shuffled.slice(0, 2);
 
   function tryGenerate() {
     const blocked = Array.from({length:cols}, () => Array(rows).fill(false));
@@ -963,6 +967,17 @@ function tryFire() {
    HUD 更新
 ========================================================================= */
 function updateBaseIcons() {
+  const wrap = document.getElementById("baseIcons");
+  if (wrap.childElementCount !== world.bases.length) {
+    wrap.innerHTML = "";
+    world.bases.forEach((_, i) => {
+      const el = document.createElement("div");
+      el.className = "base-icon";
+      el.id = "baseIcon" + i;
+      el.textContent = "基";
+      wrap.appendChild(el);
+    });
+  }
   world.bases.forEach((b,i) => {
     const el = document.getElementById("baseIcon"+i);
     if (el) el.classList.toggle("dead", !b.alive);
@@ -1023,7 +1038,7 @@ function stepGame(dt) {
 
     if (throttle !== 0) {
       const speedMul = p.guard ? GUARD_SPEED_MULT : 1;
-      const fwdSpeed = 5.2 * p.def.speed * speedMul;
+      const fwdSpeed = 6.6 * p.def.speed * speedMul;
       const speed = throttle > 0 ? fwdSpeed * throttle : fwdSpeed * throttle * 0.6;
       p.pos.x += Math.sin(p.facing) * speed * dt;
       p.pos.z += Math.cos(p.facing) * speed * dt;
@@ -1058,7 +1073,7 @@ function stepGame(dt) {
       if (base.fireTimer <= 0 && p.alive) {
         base.fireTimer = cfg.baseFireInt;
         AudioSys.baseShot();
-        spawnProjectile(base.pos, p.pos, 8.5, 15, 0x3a3a3a);
+        spawnProjectile(base.pos, p.pos, 7.0, 12, 0x3a3a3a);
       }
     }
   });
@@ -1066,7 +1081,7 @@ function stepGame(dt) {
   // ---- 敵湧き管理 ----
   world.respawnTimer -= dt;
   const aliveEnemies = world.enemies.filter(e => e.alive);
-  if (aliveEnemies.length < 2 && world.respawnTimer <= 0) {
+  if (aliveEnemies.length < MAX_ENEMIES && world.respawnTimer <= 0) {
     const aliveBases = world.bases.filter(b => b.alive);
     if (aliveBases.length > 0) {
       // すでに敵が出ている基地・直前に使った基地をできるだけ避けて、別の隅から出す
@@ -1125,7 +1140,7 @@ function stepGame(dt) {
       if (e.fireTimer <= 0) {
         e.fireTimer = cfg.enemyFireInt;
         AudioSys.enemyShot();
-        spawnProjectile(e.pos, p.pos, 9.5, 12, 0xff6b5b);
+        spawnProjectile(e.pos, p.pos, 7.6, 10, 0xff6b5b);
       }
     }
   });
