@@ -406,11 +406,12 @@ function buildTank(hullColor, accentColor, speciesId, scaleMul=1) {
 function generateStage(stage) {
   const cfg = stageConfig(stage);
   const half = cfg.halfSize;
-  const cellSize = UNIT * 1.5;
-  const N = Math.max(9, Math.floor((half*2) / cellSize) | 1); // 奇数寄りでOK
-  const toWorld = (cx, cz) => new THREE.Vector3(-half + (cx+0.5)*cellSize, 0, -half + (cz+0.5)*cellSize);
-  const cols = Math.ceil((half*2)/cellSize);
+  const roughCell = UNIT * 2.2;
+  let cols = Math.round((half*2) / roughCell);
+  cols = THREE.MathUtils.clamp(cols, 7, 14);
   const rows = cols;
+  const cellSize = (half*2) / cols; // マップぴったりに収まるよう再計算
+  const toWorld = (cx, cz) => new THREE.Vector3(-half + (cx+0.5)*cellSize, 0, -half + (cz+0.5)*cellSize);
 
   const startCell = { x:1, z:1 };
   // 3隅のうち2つを毎回ランダムに選ぶ（対角の隅は出現しやすくする）
@@ -426,68 +427,165 @@ function generateStage(stage) {
   }
   const baseCells = shuffled.slice(0, 2);
 
-  function tryGenerate() {
-    const blocked = Array.from({length:cols}, () => Array(rows).fill(false));
-    const clearZone = (cx, cz, r) => {
-      for (let dx=-r; dx<=r; dx++) for (let dz=-r; dz<=r; dz++) {
-        const x=cx+dx, z=cz+dz;
-        if (x>=0 && x<cols && z>=0 && z<rows) blocked[x][z] = "keepopen";
-      }
-    };
-    for (let x=0;x<cols;x++) for (let z=0;z<rows;z++) {
-      if (Math.random() < cfg.density) blocked[x][z] = true;
-    }
-    clearZone(startCell.x, startCell.z, 2);
-    baseCells.forEach(b => clearZone(b.x, b.z, 2));
-    // keepopen -> false
-    for (let x=0;x<cols;x++) for (let z=0;z<rows;z++) if (blocked[x][z]==="keepopen") blocked[x][z]=false;
+  // ---- 迷路生成（ランダムDFS：棒倒し法に近い方式）----
+  // wallRight[x][z] : セル(x,z)と(x+1,z)の間の壁
+  // wallDown[x][z]  : セル(x,z)と(x,z+1)の間の壁
+  const wallRight = Array.from({length:cols-1}, () => Array(rows).fill(true));
+  const wallDown  = Array.from({length:cols},   () => Array(rows-1).fill(true));
+  const visited = Array.from({length:cols}, () => Array(rows).fill(false));
 
-    // BFS 到達性チェック
-    const visited = Array.from({length:cols}, () => Array(rows).fill(false));
-    const queue = [[startCell.x, startCell.z]];
-    visited[startCell.x][startCell.z] = true;
-    while (queue.length) {
-      const [cx,cz] = queue.shift();
-      [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dz]) => {
-        const nx=cx+dx, nz=cz+dz;
-        if (nx>=0 && nx<cols && nz>=0 && nz<rows && !visited[nx][nz] && !blocked[nx][nz]) {
-          visited[nx][nz]=true; queue.push([nx,nz]);
-        }
+  function cellNeighbors(x, z) {
+    const list = [];
+    if (x>0) list.push({x:x-1, z});
+    if (x<cols-1) list.push({x:x+1, z});
+    if (z>0) list.push({x, z:z-1});
+    if (z<rows-1) list.push({x, z:z+1});
+    return list;
+  }
+  function openBetween(ax, az, bx, bz) {
+    if (bx === ax+1) wallRight[ax][az] = false;
+    else if (bx === ax-1) wallRight[bx][bz] = false;
+    else if (bz === az+1) wallDown[ax][az] = false;
+    else if (bz === az-1) wallDown[bx][bz] = false;
+  }
+
+  const stack = [{x:startCell.x, z:startCell.z}];
+  visited[startCell.x][startCell.z] = true;
+  while (stack.length) {
+    const cur = stack[stack.length-1];
+    const opts = cellNeighbors(cur.x, cur.z).filter(n => !visited[n.x][n.z]);
+    if (opts.length === 0) { stack.pop(); continue; }
+    const next = opts[Math.floor(Math.random()*opts.length)];
+    openBetween(cur.x, cur.z, next.x, next.z);
+    visited[next.x][next.z] = true;
+    stack.push(next);
+  }
+
+  // ---- ブレイド処理：ループや別ルートを増やして、行き止まり感・単調さを減らす ----
+  const braidRate = 0.24;
+  for (let x=0;x<cols-1;x++) for (let z=0;z<rows;z++) {
+    if (wallRight[x][z] && Math.random() < braidRate) wallRight[x][z] = false;
+  }
+  for (let x=0;x<cols;x++) for (let z=0;z<rows-1;z++) {
+    if (wallDown[x][z] && Math.random() < braidRate) wallDown[x][z] = false;
+  }
+
+  // ---- スタート・基地は最低2方向は開けておく（詰みを防ぐ） ----
+  function openSideCount(x, z) {
+    let c = 0;
+    if (x>0 && !wallRight[x-1][z]) c++;
+    if (x<cols-1 && !wallRight[x][z]) c++;
+    if (z>0 && !wallDown[x][z-1]) c++;
+    if (z<rows-1 && !wallDown[x][z]) c++;
+    return c;
+  }
+  function ensureOpenness(x, z, minOpen) {
+    let guard = 0;
+    while (openSideCount(x,z) < minOpen && guard++ < 8) {
+      const opts = [];
+      if (x>0) opts.push(() => wallRight[x-1][z] = false);
+      if (x<cols-1) opts.push(() => wallRight[x][z] = false);
+      if (z>0) opts.push(() => wallDown[x][z-1] = false);
+      if (z<rows-1) opts.push(() => wallDown[x][z] = false);
+      opts[Math.floor(Math.random()*opts.length)]();
+    }
+  }
+  ensureOpenness(startCell.x, startCell.z, 2);
+  baseCells.forEach(b => ensureOpenness(b.x, b.z, 2));
+
+  // ---- スタート→基地が一直線に見通せてしまう場合は、その線上に壁を差し込む ----
+  function cellConnectivityHasBase(bx, bz) {
+    const vis = Array.from({length:cols}, () => Array(rows).fill(false));
+    const q = [[startCell.x, startCell.z]];
+    vis[startCell.x][startCell.z] = true;
+    while (q.length) {
+      const [cx,cz] = q.shift();
+      if (cx===bx && cz===bz) return true;
+      cellNeighbors(cx,cz).forEach(n => {
+        if (vis[n.x][n.z]) return;
+        const wallHere = (n.x===cx+1) ? wallRight[cx][cz]
+                        : (n.x===cx-1) ? wallRight[n.x][n.z]
+                        : (n.z===cz+1) ? wallDown[cx][cz]
+                        : wallDown[n.x][n.z];
+        if (!wallHere) { vis[n.x][n.z]=true; q.push([n.x,n.z]); }
       });
     }
-    const ok = baseCells.every(b => visited[b.x][b.z]);
-    return { ok, blocked };
+    return false;
   }
-
-  let result = null;
-  for (let attempt=0; attempt<24; attempt++) {
-    const r = tryGenerate();
-    if (r.ok) { result = r; break; }
-  }
-  if (!result) {
-    // フォールバック：障害物なしに近い状態で確定
-    const blocked = Array.from({length:cols}, () => Array(rows).fill(false));
-    result = { ok:true, blocked };
-  }
-
-  const obstacleData = [];
-  for (let x=0;x<cols;x++) for (let z=0;z<rows;z++) {
-    if (result.blocked[x][z]) {
-      const p = toWorld(x, z);
-      const elongated = Math.random() < 0.4;
-      const w = elongated ? cellSize*0.92 : cellSize*(0.55+Math.random()*0.25);
-      const d = elongated ? cellSize*(0.35+Math.random()*0.15) : cellSize*(0.55+Math.random()*0.25);
-      const h = 1.1 + Math.random()*0.6;
-      const rotY = Math.random() < 0.5 ? 0 : Math.PI/2;
-      obstacleData.push({ pos:p, w, d, h, rotY });
+  function breakLineOfSight(startPos, basePos, baseCell) {
+    const steps = 320;
+    let prevCX = Math.floor((startPos.x+half)/cellSize);
+    let prevCZ = Math.floor((startPos.z+half)/cellSize);
+    const crossings = [];
+    let blocked = false;
+    for (let i=1;i<=steps;i++) {
+      const t = i/steps;
+      const wx = startPos.x + (basePos.x-startPos.x)*t;
+      const wz = startPos.z + (basePos.z-startPos.z)*t;
+      const cx = THREE.MathUtils.clamp(Math.floor((wx+half)/cellSize), 0, cols-1);
+      const cz = THREE.MathUtils.clamp(Math.floor((wz+half)/cellSize), 0, rows-1);
+      if (cx !== prevCX) {
+        const bx = Math.min(cx, prevCX);
+        if (bx>=0 && bx<cols-1) {
+          if (wallRight[bx][cz]) { blocked = true; break; }
+          crossings.push({type:'right', x:bx, z:cz});
+        }
+      }
+      if (cz !== prevCZ) {
+        const bz = Math.min(cz, prevCZ);
+        if (bz>=0 && bz<rows-1) {
+          if (wallDown[cx][bz]) { blocked = true; break; }
+          crossings.push({type:'down', x:cx, z:bz});
+        }
+      }
+      prevCX = cx; prevCZ = cz;
     }
+    if (blocked || crossings.length === 0) return;
+    // 中央付近から順に、壁を追加しても迷路の連結性が壊れない箇所を探して塞ぐ
+    const order = crossings.slice().sort((a,b) =>
+      Math.abs(crossings.indexOf(a)-crossings.length/2) - Math.abs(crossings.indexOf(b)-crossings.length/2));
+    for (const c of order) {
+      const backupR = wallRight.map(col=>col.slice());
+      const backupD = wallDown.map(col=>col.slice());
+      if (c.type === 'right') wallRight[c.x][c.z] = true; else wallDown[c.x][c.z] = true;
+      const stillOk = baseCells.every(b => cellConnectivityHasBase(b.x, b.z));
+      if (stillOk) return;
+      // 戻す
+      for (let x=0;x<wallRight.length;x++) wallRight[x] = backupR[x];
+      for (let x=0;x<wallDown.length;x++) wallDown[x] = backupD[x];
+    }
+  }
+  baseCells.forEach(b => breakLineOfSight(toWorld(startCell.x, startCell.z), toWorld(b.x, b.z), b));
+
+  // ---- 壁セグメント（板状の壁）に変換 ----
+  const wallSegments = [];
+  const wallThickness = 0.26;
+  for (let x=0;x<cols-1;x++) for (let z=0;z<rows;z++) {
+    if (!wallRight[x][z]) continue;
+    const boundaryX = -half + (x+1)*cellSize;
+    const centerZ = -half + (z+0.5)*cellSize;
+    wallSegments.push({
+      pos: new THREE.Vector3(boundaryX, 0, centerZ),
+      w: wallThickness, d: cellSize*0.96,
+      h: 1.15 + Math.random()*0.5,
+    });
+  }
+  for (let x=0;x<cols;x++) for (let z=0;z<rows-1;z++) {
+    if (!wallDown[x][z]) continue;
+    const centerX = -half + (x+0.5)*cellSize;
+    const boundaryZ = -half + (z+1)*cellSize;
+    wallSegments.push({
+      pos: new THREE.Vector3(centerX, 0, boundaryZ),
+      w: cellSize*0.96, d: wallThickness,
+      h: 1.15 + Math.random()*0.5,
+    });
   }
 
   return {
     half, cellSize, cols, rows,
     startPos: toWorld(startCell.x, startCell.z),
     basePositions: baseCells.map(b => toWorld(b.x, b.z)),
-    obstacleData,
+    wallSegments,
   };
 }
 
@@ -535,11 +633,10 @@ function buildWorld(stage, charId) {
   const obstaclePalette = [0xffd166, 0x8ecae6, 0xf49aa0, 0x8fe0a8, 0xffb4e6, 0xb9a6ff]
     .map(c => new THREE.MeshStandardMaterial({ color:c, roughness:0.55, metalness:0.05 }));
   const obstacleMeshes = [];
-  gen.obstacleData.forEach(o => {
+  gen.wallSegments.forEach(o => {
     const mat = obstaclePalette[Math.floor(Math.random()*obstaclePalette.length)];
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), mat);
     mesh.position.set(o.pos.x, o.h/2, o.pos.z);
-    mesh.rotation.y = o.rotY;
     root.add(mesh);
     mesh.updateMatrixWorld(true);
     obstacleMeshes.push({ mesh, box:new THREE.Box3().setFromObject(mesh) });
@@ -1303,6 +1400,19 @@ window.__G = {
   setJoy: (x,y) => { joyVec.x = x; joyVec.y = y; },
   getFacing: () => world ? world.player.facing : null,
   testExplosion: (x,z,s) => { if (world) spawnExplosion(new THREE.Vector3(x,0,z), s||1.5); },
+  checkLOS: () => {
+    if (!world) return null;
+    const origin = world.player.pos.clone(); origin.y = 0.55;
+    return world.bases.map(b => {
+      const dir = new THREE.Vector3(b.pos.x-origin.x, 0, b.pos.z-origin.z);
+      const dist = dir.length();
+      dir.normalize();
+      raycaster.set(origin, dir);
+      raycaster.far = dist - 0.1;
+      const hits = raycaster.intersectObjects(world.blockerMeshList, false);
+      return { baseIndex: b.index, dist, blocked: hits.length > 0 };
+    });
+  },
   getPos: () => world ? { x: world.player.pos.x, z: world.player.pos.z } : null,
   getEnemyBases: () => world ? world.enemies.filter(e=>e.alive).map(e=>e.spawnBase) : [],
   killAllEnemies: () => { if (world) world.enemies.forEach(e => { if (e.alive) { e.alive=false; world.root.remove(e.mesh); } }); },
