@@ -23,8 +23,10 @@
       radial-gradient(circle at 18% 16%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 22%),
       radial-gradient(circle at 82% 24%, rgba(255,240,150,.5) 0%, rgba(255,240,150,0) 26%),
       linear-gradient(180deg, #8fdcff 0%, #bdeaff 42%, #9fe07a 42%, #7fd45f 100%);
-    color:#20331d; text-align:center; padding:16px; z-index:50; overflow-y:auto;
+    color:#20331d; text-align:center; padding:16px; padding-top:6vh; z-index:50; overflow-y:auto;
   }
+  /* タイトルなどの主要な文字は必ず空（水色）の範囲内に収まるようにする */
+  .screen > * { flex-shrink:0; }
   .hidden { display:none !important; }
   .title-main {
     font-size:clamp(28px, 7vw, 56px); font-weight:700; color:#ffd23f;
@@ -45,6 +47,8 @@
   .stat-row { width:100%; font-size:10px; display:flex; align-items:center; gap:4px; margin-top:2px; color:#3d5a37; font-weight:700; }
   .stat-bar { flex:1; height:6px; border-radius:3px; background:rgba(60,90,50,.18); overflow:hidden; }
   .stat-fill { height:100%; border-radius:3px; }
+
+  /* あそびかたはゲーム画面の上に重ねて出すので、背景は半透明にする */
 
   .howto-list {
     max-width:520px; width:100%; display:flex; flex-direction:column; gap:8px; margin-bottom:18px;
@@ -106,8 +110,9 @@
 
   #toast {
     position:fixed; top:26%; left:50%; transform:translate(-50%,-8px); pointer-events:none;
-    background:rgba(0,0,0,.55); border:3px solid #ffe066; border-radius:20px; padding:8px 22px;
-    font-size:22px; font-weight:700; color:#ffe066; opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap;
+    background:rgba(255,255,255,.92); border:3px solid #ff9f1c; border-radius:20px; padding:8px 22px;
+    font-size:22px; font-weight:700; color:#e8590c; opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap;
+    box-shadow:0 4px 12px rgba(0,0,0,.2);
   }
 
   /* ---------- 操作系 ---------- */
@@ -144,16 +149,8 @@
 <div id="app">
   <canvas id="c"></canvas>
 
-  <!-- タイトル / キャラ選択 -->
-  <div id="screenTitle" class="screen">
-    <div class="title-main">ぴよタンク</div>
-    <div class="title-sub">2つの敵基地を はかいせよ！</div>
-    <div class="char-grid" id="charGrid"></div>
-    <button class="big-btn" id="btnStart">スタート</button>
-  </div>
-
-  <!-- あそびかた説明 -->
-  <div id="screenHowTo" class="screen hidden">
+  <!-- あそびかた説明（最初に表示） -->
+  <div id="screenHowTo" class="screen">
     <div class="title-main" style="font-size:clamp(24px,6vw,42px);">あそびかた</div>
     <div class="howto-list">
       <div class="howto-row"><span class="howto-icon" style="background:#ffcf3d;">◀▶</span><span>ひだりの スティックで うごく（ひだり・みぎで まがる、うえ・したで まえ・うしろ）</span></div>
@@ -163,7 +160,15 @@
       <div class="howto-row"><span class="howto-icon" style="background:#6bef7a;">★</span><span>てきを たおすと アイテムが でることが ある。ひろって パワーアップ！</span></div>
       <div class="howto-row"><span class="howto-icon" style="background:#b659ff;">⏱</span><span>せいげんじかんは 120びょう。ステージは ぜんぶで 3つ</span></div>
     </div>
-    <button class="big-btn" id="btnHowToStart">はじめる</button>
+    <button class="big-btn" id="btnHowToNext">つぎへ</button>
+  </div>
+
+  <!-- タイトル / キャラ選択 -->
+  <div id="screenTitle" class="screen hidden">
+    <div class="title-main">ぴよタンク</div>
+    <div class="title-sub">2つの敵基地を はかいせよ！</div>
+    <div class="char-grid" id="charGrid"></div>
+    <button class="big-btn" id="btnStart">スタート</button>
   </div>
 
   <!-- ステージクリア -->
@@ -232,6 +237,7 @@ const BOMB_COOLDOWN = 0.85;
 const ENEMY_HIT_TO_KILL = 2;         // レーザーと同じ：敵は2発で撃破
 const BASE_HIT_TO_KILL = 4;          // レーザーと同じ：基地は4発で撃破
 const MAX_ENEMIES = 2;
+const NEAR_BASE_RADIUS = 5.5;   // この距離より基地に近いと、敵の出現が2秒遅れる
 const PLAYER_HP_MAX = 100;
 const PLAYER_INVULN = 0.5;
 const GUARD_DAMAGE_MULT = 0.5;
@@ -260,11 +266,11 @@ function stageConfig(stage) {
   // stage: 1,2,3
   const cfgs = {
     1: { halfSize:  9*UNIT, baseActive:false, baseRange:10*UNIT, baseFireInt:3.4, enemyFireInt:3.4, enemyRange:7*UNIT,
-         enemySpeed:2.2, respawnDelay:4.5, timeLimit:120, density:0.16, baseCount:2, baseBurst:1 },
+         enemySpeed:2.2, respawnDelay:4.5, timeLimit:120, density:0.16, baseCount:2, baseBurst:1, maxEnemies:1, itemDropChance:0.8 },
     2: { halfSize: 14*UNIT, baseActive:true,  baseRange:9*UNIT,  baseFireInt:2.8, enemyFireInt:2.7, enemyRange:8*UNIT,
-         enemySpeed:2.6, respawnDelay:4.0, timeLimit:120, density:0.18, baseCount:2, baseBurst:1 },
-    3: { halfSize: 18*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:3.0, enemyFireInt:2.2, enemyRange:9*UNIT,
-         enemySpeed:2.9, respawnDelay:3.5, timeLimit:120, density:0.20, baseCount:3, baseBurst:3 },
+         enemySpeed:2.6, respawnDelay:4.0, timeLimit:120, density:0.18, baseCount:2, baseBurst:1, maxEnemies:2 },
+    3: { halfSize: 14*UNIT, baseActive:true,  baseRange:10*UNIT, baseFireInt:3.0, enemyFireInt:2.2, enemyRange:9*UNIT,
+         enemySpeed:2.9, respawnDelay:3.5, timeLimit:180, density:0.20, baseCount:3, baseBurst:3, baseBurstGap:2.0, maxEnemies:2 },
   };
   return cfgs[stage];
 }
@@ -1229,16 +1235,7 @@ function throwBomb(originPos, dirRad) {
 let _bombGeoCache = null;
 function getBombGeometry() {
   if (_bombGeoCache) return _bombGeoCache;
-  const geo = new THREE.IcosahedronGeometry(0.24, 0);
-  const posAttr = geo.attributes.position;
-  const v = new THREE.Vector3();
-  for (let i=0;i<posAttr.count;i++) {
-    v.fromBufferAttribute(posAttr, i);
-    const jitter = 0.82 + Math.random()*0.36;
-    v.multiplyScalar(jitter);
-    posAttr.setXYZ(i, v.x, v.y, v.z);
-  }
-  geo.computeVertexNormals();
+  const geo = new THREE.IcosahedronGeometry(0.26, 0);
   _bombGeoCache = geo;
   return geo;
 }
@@ -1261,7 +1258,8 @@ function pickItemType() {
 }
 
 function maybeDropItem(pos) {
-  if (Math.random() > ITEM_DROP_CHANCE) return;
+  const chance = (world.cfg && world.cfg.itemDropChance != null) ? world.cfg.itemDropChance : ITEM_DROP_CHANCE;
+  if (Math.random() > chance) return;
   if (world.items.length >= 1) return; // 画面には常に最大1個まで
   spawnMysteryItem(pos);
 }
@@ -1465,7 +1463,7 @@ function applyProjectileDamageToPlayer(dmg) {
 let toastTimer = null;
 function flashHitToast() {
   const el = document.getElementById("toast");
-  el.textContent = "うわっ！";
+  el.textContent = "いてっ！";
   el.style.opacity = 1; el.style.transform = "translate(-50%,0)";
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.style.opacity = 0; el.style.transform="translate(-50%,-8px)"; }, 380);
@@ -1608,11 +1606,12 @@ function startBoardingSequence(charId) {
   const walker = buildCharacterModel(charId);
   walker.scale.setScalar(walkScale);
 
-  // 横（右側）から歩いてきて乗り込む
+  // タンクの「右ななめ前」から歩いてきて乗り込む（カメラは車体の後ろ側なので顔が見える）
+  const forward = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
   const right = new THREE.Vector3(Math.cos(p.facing), 0, -Math.sin(p.facing));
-  const startPos = p.pos.clone().addScaledVector(right, 3.4);
+  const startPos = p.pos.clone().addScaledVector(forward, 3.2).addScaledVector(right, 2.4);
   startPos.y = -info.feetY * walkScale;
-  const endPos = p.pos.clone().addScaledVector(right, 0.15);
+  const endPos = p.pos.clone().addScaledVector(right, 0.9).addScaledVector(forward, 0.1);
   endPos.y = -info.feetY * walkScale;
 
   const moveDir = new THREE.Vector3(endPos.x-startPos.x, 0, endPos.z-startPos.z).normalize();
@@ -1640,15 +1639,15 @@ function updateBoardingCamera(zoomProgress, dt) {
   const b = world.boarding;
   const p = world.player;
 
-  // アップの視点：歩いてくるキャラを間近で捉える
+  // アップの視点：車体の後ろ側から、歩いてくるキャラの顔を正面気味に捉える
   const walkerPos = b.walker.position;
-  const toTank = new THREE.Vector3(p.pos.x-walkerPos.x, 0, p.pos.z-walkerPos.z).normalize();
-  const sideDir = new THREE.Vector3(-toTank.z, 0, toTank.x);
-  const closeCam = walkerPos.clone()
-    .addScaledVector(toTank, -1.5)
-    .addScaledVector(sideDir, 1.6);
-  closeCam.y = 1.15;
-  const closeLook = walkerPos.clone(); closeLook.y = 0.65;
+  const behindDir = new THREE.Vector3(-Math.sin(p.facing), 0, -Math.cos(p.facing));
+  const rightDir = new THREE.Vector3(Math.cos(p.facing), 0, -Math.sin(p.facing));
+  const closeCam = p.pos.clone()
+    .addScaledVector(behindDir, 2.6)
+    .addScaledVector(rightDir, 1.8);
+  closeCam.y = 1.55;
+  const closeLook = walkerPos.clone(); closeLook.y = 0.7;
 
   // 通常のゲーム視点
   const behind = new THREE.Vector3(-Math.sin(p.facing), 0, -Math.cos(p.facing));
@@ -1688,8 +1687,8 @@ function updateBoarding(dt) {
     world.root.remove(b.walker);
     world.player.mesh.userData.pilot.visible = true;
     world.boarding = null;
-    world.state = "playing";
     updateCamera(999);
+    world.state = "playing";
     document.getElementById("joyZone").style.visibility = "";
     document.getElementById("actionZone").style.visibility = "";
     showToast("ステージ " + world.stage + " スタート！", 1100);
@@ -1783,7 +1782,7 @@ function stepGame(dt) {
     if (base.burstLeft > 0) {
       base.burstTimer -= dt;
       if (base.burstTimer <= 0 && p.alive) {
-        base.burstTimer = 1.0;
+        base.burstTimer = cfg.baseBurstGap || 1.0;
         base.burstLeft -= 1;
         AudioSys.baseShot();
         spawnProjectile(base.pos, p.pos, 7.0, 12, 0xb659ff, 1.5);
@@ -1800,15 +1799,20 @@ function stepGame(dt) {
         spawnProjectile(base.pos, p.pos, 7.0, 12, 0xb659ff, 1.5);
         // 3連射ステージでは、この後さらに1秒おきに追加で撃つ
         const burst = (cfg.baseBurst || 1) - 1;
-        if (burst > 0) { base.burstLeft = burst; base.burstTimer = 1.0; }
+        if (burst > 0) { base.burstLeft = burst; base.burstTimer = cfg.baseBurstGap || 1.0; }
       }
     }
   });
 
   // ---- 敵湧き管理 ----
-  world.respawnTimer -= dt;
   const aliveEnemies = world.enemies.filter(e => e.alive);
-  if (aliveEnemies.length < MAX_ENEMIES && world.respawnTimer <= 0) {
+  if (aliveEnemies.length >= (cfg.maxEnemies || MAX_ENEMIES)) {
+    // 上限に達している間はタイマーを進めない（倒した瞬間に即湧きするのを防ぐ）
+    world.respawnTimer = cfg.respawnDelay;
+  } else {
+    world.respawnTimer -= dt;
+  }
+  if (aliveEnemies.length < (cfg.maxEnemies || MAX_ENEMIES) && world.respawnTimer <= 0) {
     const aliveBases = world.bases.filter(b => b.alive);
     if (aliveBases.length > 0) {
       // すでに敵が出ている基地・直前に使った基地をできるだけ避けて、別の隅から出す
@@ -1818,9 +1822,14 @@ function stepGame(dt) {
       if (pool.length === 0) pool = aliveBases.filter(b => b.index !== world.lastSpawnBase);
       if (pool.length === 0) pool = aliveBases;
       const base = pool[Math.floor(Math.random()*pool.length)];
-      world.lastSpawnBase = base.index;
-      spawnEnemyFrom(base);
-      world.respawnTimer = cfg.respawnDelay;
+      // 自機がその基地の近くにいるときは、出てくるのを2秒待たせる（湧き潰し対策）
+      if (base.pos.distanceTo(p.pos) < NEAR_BASE_RADIUS) {
+        world.respawnTimer = 2.0;
+      } else {
+        world.lastSpawnBase = base.index;
+        spawnEnemyFrom(base);
+        world.respawnTimer = cfg.respawnDelay;
+      }
     }
   }
   world.enemies = world.enemies.filter(e => e.alive || performance.now() - (e.deadAt||0) < 1);
@@ -1905,7 +1914,7 @@ function stepGame(dt) {
         e.fireTimer = cfg.enemyFireInt;
         AudioSys.enemyShot();
         const muzzle = e.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(e.facing),0,Math.cos(e.facing)), 1.15);
-        spawnProjectile(muzzle, p.pos, 7.6, 10, 0xff9f1c, 0.55);
+        spawnProjectile(muzzle, p.pos, 7.6, 10, 0x5fd8ff, 0.55);
       }
     }
   });
@@ -2072,11 +2081,11 @@ function onGameOver(reason) {
   setTimeout(() => showScreen("screenOver"), 400);
 }
 
-document.getElementById("btnStart").addEventListener("click", () => {
+document.getElementById("btnHowToNext").addEventListener("click", () => {
   AudioSys.unlock();
-  showScreen("screenHowTo");
+  showScreen("screenTitle");
 });
-document.getElementById("btnHowToStart").addEventListener("click", () => {
+document.getElementById("btnStart").addEventListener("click", () => {
   AudioSys.unlock();
   startGame(selectedChar);
 });
@@ -2151,6 +2160,7 @@ window.__G = {
     return Math.hypot(alive[0].pos.x-world.player.pos.x, alive[0].pos.z-world.player.pos.z);
   },
   itemCount: () => world ? world.items.length : null,
+  getItemDropChance: () => world ? (world.cfg.itemDropChance != null ? world.cfg.itemDropChance : ITEM_DROP_CHANCE) : null,
   getBuffs: () => world ? Object.assign({}, world.buffs) : null,
   dropItemHere: (id) => {
     if (!world) return null;
@@ -2189,7 +2199,7 @@ window.__G = {
     if (!world) return null;
     const p = world.player;
     const from = p.pos.clone().addScaledVector(new THREE.Vector3(Math.sin(p.facing),0,Math.cos(p.facing)), 6);
-    spawnProjectile(from, p.pos, 3.0, 10, 0xff9f1c, 0.55);
+    spawnProjectile(from, p.pos, 3.0, 10, 0x5fd8ff, 0.55);
     return { from: {x:from.x,z:from.z} };
   },
   debugBombs: () => {
