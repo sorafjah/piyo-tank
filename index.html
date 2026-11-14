@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- ホーム画面に追加して開くと、アドレスバーなしの全画面で表示される -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ぴよタンク">
 <title>ぴよタンク</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
@@ -143,6 +147,15 @@
   #btnGuard.active { background:radial-gradient(circle at 35% 30%, #ffe680, #d4a017); }
 
   .close-x { position:fixed; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.55); }
+
+/* ==== スマホ用パネル調整：スマホ（画面が低いとき）だけに効く。iPadには影響しない ==== */
+@media (orientation:landscape) and (max-height:500px), (orientation:portrait) and (max-height:700px){
+  .screen{padding-top:8px}
+  .big-btn{position:sticky;bottom:8px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  .howto-list{display:grid;grid-template-columns:1fr 1fr;max-width:none;width:min(96vw,900px);gap:6px;padding:8px 10px;margin-bottom:8px}
+}
 </style>
 </head>
 <body>
